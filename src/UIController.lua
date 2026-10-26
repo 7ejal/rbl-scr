@@ -195,7 +195,7 @@ function UIController.new(playerGui, settings, fov, janitorClass)
     heading.Font = Enum.Font.GothamBold
     label(welcome, "Player and monster visual overlays", 20, 60, 414, 24, 14)
     local description = label(welcome,
-        "Press I to toggle overlays. Press P while pointing at a monster to inspect its model.",
+        "I: toggle ESP. P: inspect aimed monster. O: list nearby monster models.",
         20, 95, 415, 62, 13)
     description.TextWrapped = true
     description.TextTruncate = Enum.TextTruncate.None
@@ -213,6 +213,10 @@ function UIController.new(playerGui, settings, fov, janitorClass)
     local refreshButton = button(home, "Rescan monsters", 0, 281, 210, 43, COLOR.Row)
     self.Janitor:Add(refreshButton.MouseButton1Click:Connect(function()
         if self.OnRescan then self.OnRescan() end
+    end))
+    local modelScanButton = button(home, "Find monster models", 224, 281, 223, 43, COLOR.Row)
+    self.Janitor:Add(modelScanButton.MouseButton1Click:Connect(function()
+        if self.OnInspectNearby then self.OnInspectNearby() end
     end))
 
     -- ESP page: feature flags and detection range.
@@ -265,8 +269,12 @@ function UIController.new(playerGui, settings, fov, janitorClass)
     corner(monsterPanel, 10)
     self.MonsterCountLabel = label(monsterPanel, "Detected monsters: 0", 16, 6, 420, 31, 14)
     self.MonsterCountLabel.Font = Enum.Font.GothamBold
-    local inspectTip = label(monsterPanel, "Hover over a monster and press P for model details.", 16, 42, 433, 25, 12)
+    local inspectTip = label(monsterPanel, "P: inspect target   O: list nearby models", 16, 42, 433, 25, 12)
     inspectTip.TextColor3 = COLOR.Muted
+    local monsterScan = button(monsterPanel, "Find models", 209, 70, 132, 28, COLOR.Row)
+    self.Janitor:Add(monsterScan.MouseButton1Click:Connect(function()
+        if self.OnInspectNearby then self.OnInspectNearby() end
+    end))
     local monsterRescan = button(monsterPanel, "Rescan", 350, 70, 95, 28, COLOR.Row)
     self.Janitor:Add(monsterRescan.MouseButton1Click:Connect(function()
         if self.OnRescan then self.OnRescan() end
@@ -311,7 +319,7 @@ function UIController.new(playerGui, settings, fov, janitorClass)
     self:ToggleRow(settingsPage, "Team colors", "TeamColors", 137)
     self:ToggleRow(settingsPage, "Player distance labels", "ShowDistance", 187)
     label(settingsPage, "Overlay toggle: I", 12, 249, 430, 25, 14)
-    label(settingsPage, "Inspect hovered monster: P", 12, 281, 430, 25, 14)
+    label(settingsPage, "Inspect target: P   Nearby model list: O", 12, 281, 430, 25, 14)
     local resetFOV = button(settingsPage, "Reset camera FOV", 0, 334, 220, 44, COLOR.Row)
     self.Janitor:Add(resetFOV.MouseButton1Click:Connect(function()
         self.FOV:SetFOV(self.FOV.Original)

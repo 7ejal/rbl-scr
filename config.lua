@@ -3,6 +3,7 @@ return {
     Enabled = true, -- master overlay toggle; I switches this setting
     ToggleKey = Enum.KeyCode.I,
     InspectorKey = Enum.KeyCode.P,
+    InspectorScanKey = Enum.KeyCode.O,
     MaxDistance = 500,
     RenderFPS = 30,
 

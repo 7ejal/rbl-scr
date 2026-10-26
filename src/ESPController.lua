@@ -112,7 +112,14 @@ function ESPController:Start()
         self.Settings.ToggleKey,
         function() self:Toggle() end
     )
-    self.Inspector = self.Classes.MonsterInspector.new(self.Settings.InspectorKey)
+    self.Inspector = self.Classes.MonsterInspector.new(
+        self.Settings.InspectorKey,
+        self.Settings.InspectorScanKey,
+        self.Classes.MonsterTracker
+    )
+    self.UI.OnInspectNearby = function()
+        if self.Inspector then self.Inspector:ScanNearby() end
+    end
 
     self.Tracker = self.Classes.PlayerTracker.new(
         self.LocalPlayer,

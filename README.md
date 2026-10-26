@@ -13,7 +13,8 @@ Class-based, modular client-side ESP with a dark dashboard inspired by the provi
 - Detection distance defaults to 500 studs and changes in 100-stud steps.
 - Camera FOV slider (40 to 120 degrees) under Settings.
 - **I** toggles all overlays while keeping the dashboard and FOV available.
-- **P** inspects the model under the cursor: name, hierarchy, tags, Humanoid health and attributes. Outputs to F9 console and copies to clipboard if available.
+- **P** inspects the creature at your cursor. If you hit Terrain or another obstacle, it tries a raycast excluding Terrain and checks recognized NPCs near your cursor.
+- **O** lists nearby recognized and unclassified Workspace models with names and full paths (25 max per group); also available via the Find models dashboard button. Diagnostics print to F9 and copy to clipboard if supported.
 - One 30 Hz render coordinator, cleanup on re-execution.
 
 ## Test the open PR branch
@@ -34,7 +35,7 @@ Calling getgenv().IvoryESP_Stop() removes overlays, UI and listeners, and restor
 
 MonsterTracker automatically includes replicated Workspace Models with a directly attached Humanoid or recognized monster-related names, tags, attributes or folder names. It excludes known player characters. It scans on startup, reacts to new models, and rescans every 10 seconds. This is a generic heuristic **not a guarantee for every game**. Custom creatures without Humanoids or recognizable markers may require explicit model names.
 
-**Monster IDs are not guaranteed numeric.** Point at an in-game monster and press **P**. Share the inspector result to add precise per-game monster targeting, e.g., tiers T5/T6. Press F9 for console output.
+**Monster IDs are not guaranteed numeric.** Close F9 to aim, then point at an in-game monster and press **P**. If the output only says Terrain or cannot identify the model, press **O** or click Find models, then open F9 and share the nearby-model list. Pressing P or O will copy the report if your executor supports clipboard access. Share the inspector result to add precise per-game monster targeting, e.g., tiers T5/T6. An unclassified model can be scenery, not a confirmed monster.
 
 The inspector cannot see server-only instances or unreplicated/streamed-out models.
 

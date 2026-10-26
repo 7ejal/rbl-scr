@@ -54,6 +54,11 @@ for _, name in ipairs(names) do
 end
 
 -- Fetch every module successfully before replacing a running instance.
+-- Clean up the older standalone inspector if it was executed before this loader.
+if _G.IvoryInspectorConnection then
+    pcall(function() _G.IvoryInspectorConnection:Disconnect() end)
+    _G.IvoryInspectorConnection = nil
+end
 if type(env.IvoryESP_Stop) == "function" then
     pcall(env.IvoryESP_Stop)
 end
@@ -71,5 +76,5 @@ local function stop()
 end
 
 env.IvoryESP_Stop = stop
-print("[IVORY ESP] Dashboard ready | I: overlay toggle | P: inspect monster")
+print("[IVORY ESP] Dashboard ready | I: toggle | P: inspect | O: list nearby models")
 return controller

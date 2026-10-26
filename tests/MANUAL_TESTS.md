@@ -7,7 +7,10 @@
 - [ ] Move to Monsters. NPCs with Humanoids are detected; check names, boxes, health, distance and highlights.
 - [ ] Toggle Monster ESP and each monster subfeature independently.
 - [ ] Press I to hide both player and monster overlays; press I again to restore.
-- [ ] Press P while hovering a monster's body part; F9 console prints full model hierarchy, tags and attributes. Where available, clipboard contains report.
+- [ ] Press P while aiming at a monster (with F9 closed); it prints model path, tags and attributes. Clipboard receives the report where supported.
+- [ ] Press P while aiming at Terrain; it does NOT label Terrain as a monster, and attempts NPC detection near cursor or explains how to scan.
+- [ ] Press O or click Find models and open F9; it lists up to 25 recognized NPC candidates and up to 25 other nearby models, including names and full paths.
+- [ ] Run the old standalone inspector and then the modular loader; verify duplicate P handlers from the old script are disconnected.
 - [ ] Confirm no player character is wrongly included as a monster after join/respawn.
 - [ ] Confirm models without Humanoids but tagged/named as a monster can be highlighted and have names.
 - [ ] Detection distance +/- buttons change effective range by 100 studs, clamped 100–5000.
