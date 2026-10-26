@@ -142,29 +142,49 @@ function Tracker:Check(instance)
 end
 
 function Tracker:Scan()
-    local seen = {}
-    for _, instance in ipairs(workspace:GetDescendants()) do
-        if instance:IsA("Model") then
-            seen[instance] = true
-            self:Check(instance)
-        elseif instance:IsA("BasePart") then
-            -- Avoid per-part classification for generic terrain/decorative parts.
-            local registered = self.Settings.MonsterModelNames[
-                string.lower(instance.Name)] == true
-            if registered or containsAny(instance.Name, MONSTER_TERMS)
-                or next(instance:GetAttributes()) ~= nil
-                or #Tags:GetTags(instance) > 0 then
+    -- Do not freeze startup or the client UI on maps with many thousands
+    -- of descendants. A second scan request is queued if one is active.
+    if self.Scanning then
+        self.RescanRequested = true
+        return
+    end
+    self.Scanning = true
+    repeat
+        self.RescanRequested = false
+        local seen = {}
+        local instances = workspace:GetDescendants()
+        for index, instance in ipairs(instances) do
+            if not self.Started then break end
+
+            if instance:IsA("Model") then
                 seen[instance] = true
                 self:Check(instance)
+            elseif instance:IsA("BasePart") then
+                -- Skip most decorative parts while discovering monsters.
+                local registered = self.Settings.MonsterModelNames[
+                    string.lower(instance.Name)] == true
+                if registered or containsAny(instance.Name, MONSTER_TERMS)
+                    or next(instance:GetAttributes()) ~= nil
+                    or #Tags:GetTags(instance) > 0 then
+                    seen[instance] = true
+                    self:Check(instance)
+                end
+            end
+
+            -- Yield periodically rather than holding one expensive frame.
+            if index % 200 == 0 then task.wait() end
+        end
+
+        if self.Started then
+            for instance in pairs(self.Known) do
+                if not seen[instance] then
+                    self.Known[instance] = nil
+                    self.OnRemove(instance)
+                end
             end
         end
-    end
-    for instance in pairs(self.Known) do
-        if not seen[instance] then
-            self.Known[instance] = nil
-            self.OnRemove(instance)
-        end
-    end
+    until not self.RescanRequested or not self.Started
+    self.Scanning = false
 end
 
 function Tracker:TrackName(instance)
@@ -254,7 +274,10 @@ function Tracker:Start()
             self.OnRemove(instance)
         end
     end))
-    self:Scan()
+    -- Scan after Start returns; the dashboard can finish initializing first.
+    task.defer(function()
+        if self.Started then self:Scan() end
+    end)
 end
 
 function Tracker:Destroy()

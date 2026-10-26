@@ -22,6 +22,35 @@ Class-based, modular client-side ESP with a dark dashboard inspired by the provi
 - **O** lists nearby recognized and unclassified Workspace models with names and full paths (25 max per group); also available via the Find models dashboard button. Diagnostics print to F9 and copy to clipboard if supported.
 - One 30 Hz render coordinator, cleanup on re-execution.
 
+## In-game load notifications and troubleshooting
+
+The remote `main.lua` creates an independent dark notification at the top-right before fetching feature modules. It reports loading progress, **IVORY ESP - Loaded** once the dashboard starts, or **IVORY ESP - Load failed** with the failing module/error. Failure details are also printed in the F9 developer console. This notification works even if the main ESP GUI cannot initialize (provided `main.lua` itself downloads).
+
+Monster scanning is scheduled separately and yields periodically on large worlds, so it should not block dashboard startup. Monster overlays may appear after the dashboard becomes ready.
+
+If no notification appears at all, the initial `game:HttpGet(.../main.lua)` or `loadstring` may have failed in the executor. Use this diagnostic launcher to surface that outer error:
+
+```lua
+local ok, err = pcall(function()
+    getgenv().IvoryESP_Ref = "feature/modular-ivory-esp"
+    local source = game:HttpGet(
+        "https://raw.githubusercontent.com/7ejal/rbl-scr/feature/modular-ivory-esp/main.lua"
+    )
+    local run = assert(loadstring(source))
+    run()
+end)
+if not ok then
+    warn("[IVORY BOOT ERROR] " .. tostring(err))
+    pcall(function()
+        game:GetService("StarterGui"):SetCore("SendNotification", {
+            Title = "IVORY ESP - Boot error",
+            Text = "Open F9 and copy the IVORY BOOT ERROR line.",
+            Duration = 12,
+        })
+    end)
+end
+```
+
 ## Test the open PR branch
 
 In a trusted executor supporting game:HttpGet and loadstring:

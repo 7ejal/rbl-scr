@@ -1,5 +1,8 @@
 # Manual validation (not yet run in Roblox/Xeno)
 
+- [ ] Load the PR branch. A standalone "IVORY ESP - Loading" notification appears, followed by "IVORY ESP - Loaded" only once the dashboard starts.
+- [ ] Simulate an invalid module branch; a standalone in-game "Load failed" notice and F9 error should identify the missing module.
+- [ ] With a large Workspace, module startup completes before the incremental monster scan finishes (avoid long client freezes).
 - [ ] Load the PR branch. A 680 x 500 rounded dark dashboard appears, with English text only and no emoji icons.
 - [ ] Verify Home, ESP, Monsters, Settings sidebar navigation works.
 - [ ] Header FPS and ping labels update after a second.
