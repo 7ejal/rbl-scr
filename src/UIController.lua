@@ -181,9 +181,9 @@ function UIController.new(playerGui, settings, fov, janitorClass)
         BackgroundTransparency = 1,
     })
 
-    local tabs = {"Home", "ESP", "Auto Aim", "Monsters", "HandCatch", "Targets", "Settings"}
+    local tabs = {"Home", "ESP", "Auto Aim", "Auto Shoot", "Monsters", "HandCatch", "Targets", "Settings"}
     for index, name in ipairs(tabs) do
-        local tab = button(sidebar, name, 10, 10 + (index - 1) * 53, 161, 44, COLOR.Sidebar)
+        local tab = button(sidebar, name, 10, 10 + (index - 1) * 49, 161, 41, COLOR.Sidebar)
         self.Tabs[name] = tab
         self.Janitor:Add(tab.MouseButton1Click:Connect(function()
             self:ShowPage(name)
@@ -349,6 +349,55 @@ function UIController.new(playerGui, settings, fov, janitorClass)
     counterPanel(180, "Target FOV radius", "AimRadius", 20, 20, 400, " px")
     counterPanel(261, "Target distance", "AimDistance", 50, 50, 1500, " studs")
     counterPanel(342, "Aim smoothing", "AimSmoothness", 0.05, 0.05, 1, "", true)
+
+    -- Auto Shoot: separate from camera aiming; an equipped Roblox Tool is required.
+    -- It never fires at thrown HandCatch or non-Dhab targets.
+    local shooter = self.Pages["Auto Shoot"]
+    self:ToggleRow(shooter, "Auto Shoot (live Dhab only)", "AutoShootEnabled", 0)
+    self:ToggleRow(shooter, "Require clear line of sight", "AutoShootLineOfSight", 50)
+    self:ToggleRow(shooter, "Require right mouse button", "AimHoldRightMouse", 100)
+
+    local shootInfo = label(shooter,
+        "Auto Shoot enables Auto Aim. Firing only starts when a live Dhab is centered.",
+        10, 149, 440, 50, 12)
+    shootInfo.TextWrapped = true
+    shootInfo.TextTruncate = Enum.TextTruncate.None
+    shootInfo.TextYAlignment = Enum.TextYAlignment.Top
+    shootInfo.TextColor3 = COLOR.Muted
+
+    local shootPanel = create("Frame", shooter, {
+        Position = UDim2.fromOffset(0, 212),
+        Size = UDim2.fromOffset(461, 89),
+        BackgroundColor3 = COLOR.Sidebar,
+        BorderSizePixel = 0,
+    })
+    corner(shootPanel, 8)
+    self.ShootRateLabel = label(shootPanel, "Firing rate", 15, 5, 435, 25, 14)
+    local decrease = button(shootPanel, "- 1 shot/sec", 16, 39, 135, 36, COLOR.Row)
+    local increase = button(shootPanel, "+ 1 shot/sec", 161, 39, 135, 36, COLOR.Row)
+    self.Janitor:Add(decrease.MouseButton1Click:Connect(function()
+        self:ChangeSetting("AutoShootRate",
+            math.clamp(self.Settings.AutoShootRate - 1, 1, 8))
+    end))
+    self.Janitor:Add(increase.MouseButton1Click:Connect(function()
+        self:ChangeSetting("AutoShootRate",
+            math.clamp(self.Settings.AutoShootRate + 1, 1, 8))
+    end))
+
+    local statusPanel = create("Frame", shooter, {
+        Position = UDim2.fromOffset(0, 310),
+        Size = UDim2.fromOffset(461, 103),
+        BackgroundColor3 = COLOR.Sidebar,
+        BorderSizePixel = 0,
+    })
+    corner(statusPanel, 8)
+    local statusHeading = label(statusPanel, "Auto Shoot status", 15, 7, 430, 27, 14)
+    statusHeading.Font = Enum.Font.GothamBold
+    self.AutoShootStatusLabel = label(statusPanel, "OFF",
+        15, 39, 433, 45, 12)
+    self.AutoShootStatusLabel.TextWrapped = true
+    self.AutoShootStatusLabel.TextTruncate = Enum.TextTruncate.None
+    self.AutoShootStatusLabel.TextColor3 = COLOR.Muted
 
     -- Targets tab: users can register the real model name without guessing IDs.
     local targets = self.Pages.Targets
@@ -569,6 +618,10 @@ function UIController:Refresh()
     end
     self.RangeLabel.Text = "ESP detection distance: "
         .. tostring(self.Settings.MaxDistance) .. " studs"
+    if self.ShootRateLabel then
+        self.ShootRateLabel.Text = "Firing rate: " ..
+            tostring(self.Settings.AutoShootRate) .. " shots/sec"
+    end
     if self.AimLabels then
         for key, entry in pairs(self.AimLabels) do
             local value = self.Settings[key]
@@ -580,6 +633,12 @@ end
 function UIController:SetESPEnabled(enabled)
     self.Settings.Enabled = enabled
     self:Refresh()
+end
+
+function UIController:SetAutoShootStatus(status)
+    if self.AutoShootStatusLabel then
+        self.AutoShootStatusLabel.Text = tostring(status)
+    end
 end
 
 function UIController:UpdateHomeCounts()

@@ -15,6 +15,7 @@ Class-based, modular client-side ESP with a dark dashboard inspired by the provi
 - Each live Dhab displays a quality label above its model name; HandCatch can also show available captured-creature quality. The per-instance quality reader tries model/descendant attributes, StringValue/NumberValue/IntValue fields and explicitly labeled quality text. Missing replicated values are shown as `Quality: Unknown` rather than invented.
 - `Targets` tab lets you select a real nearby model (including custom creatures) and track/untrack its name. Registered names survive loader re-execution in the current executor session.
 - Detection distance defaults to 1200 studs and changes in 100-stud steps.
+- New **Auto Shoot** tab (OFF by default): activates the equipped Roblox Tool only when a live DhabWild model is selected, centered in the crosshair and visible (line-of-sight check on by default). It has an adjustable 1–8 shots/second limit and an in-GUI status message. Turning it ON also enables camera aim; switching Aim OFF pauses shooting. Thrown HandCatch, vendors, players and other monsters are never shot.
 - `Auto Aim` only rotates the camera toward **live DhabWild Models** (not discarded HandCatch, traders, plots, or other monsters). The tab has an aim toggle (OFF by default), optional right-mouse hold, FOV circle, adjustable FOV radius, target distance and smoothing. Does not fire weapons or send attack events.
 - Camera FOV slider (40 to 120 degrees) under Settings.
 - **I** toggles all ESP overlays while keeping the dashboard, FOV, and independently controlled auto-aim available.
@@ -92,7 +93,8 @@ The inspector cannot see server-only instances or unreplicated/streamed-out mode
 | src/QualityESP.lua | Dhab / HandCatch quality label |
 | src/MonsterESP.lua | Composes monster visuals |
 | src/MonsterInspector.lua | Inspect hovered monster (P), scan nearby (O), register (M) |
-| src/AimController.lua | Monster-only camera targeting and FOV circle |
+| src/AimController.lua | Live-Dhab-only camera targeting and FOV circle |
+| src/AutoShootController.lua | Equipped Tool auto-activation, rate limit and visibility checking |
 | src/Projection.lua | Bounding-box projection |
 | src/BoxESP.lua | Screen box |
 | src/NameESP.lua | Label |
@@ -100,7 +102,7 @@ The inspector cannot see server-only instances or unreplicated/streamed-out mode
 | src/HealthESP.lua | Health bar |
 | src/HighlightESP.lua | Through-wall Highlight |
 | src/FOVController.lua | Camera FOV |
-| src/UIController.lua | Dark dashboard: ESP, Auto Aim, Monsters, Targets, Settings |
+| src/UIController.lua | Dark dashboard: ESP, Auto Aim, Auto Shoot, Monsters, HandCatch, Targets, Settings |
 | src/KeybindController.lua | I keyboard shortcut |
 | src/Janitor.lua | Listener/instance cleanup |
 
@@ -114,6 +116,7 @@ Each behavior has its own class-like module. Edit a module without re-copying th
 - Monsters without health data won't show health bars.
 - In some games, NPCs may be friendly rather than hostile; generic matching cannot tell them apart.
 - Client streaming/replication determines what the script can inspect.
+- Auto Shoot calls `Tool:Activate()` / `Tool:Deactivate()` on an **already equipped Tool**. A custom game weapon that uses its own input handler/RemoteEvent might not respond. This script does not spoof game-specific remotes, equip tools, or bypass ammunition/cooldowns. Disable Auto Shoot to stop activations.
 - Auto aim rotates the local camera only; it does not modify weapon hits, attack accuracy or server behavior. Targets MUST be live Dhab models inside `Workspace.DhabWild`; no HandCatch can ever be targeted.
 - Quality and rarity aren't equivalent. The label reflects the actual field name when `Rarity` or `Grade` is found. If no per-model quality metadata is available to the client, the script displays `Quality: Unknown`. Press P to inspect the exact object and its replicated attributes for diagnosis.
 - Target names added through the GUI or M are remembered only in the current client session; for persistence across Roblox launches, copy exact names into `config.lua`.

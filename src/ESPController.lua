@@ -96,6 +96,10 @@ function ESPController:SetSetting(key, value)
     end
 
     self.Settings[key] = value
+    -- Auto Shoot depends on camera aim; activating shooting enables aim too.
+    if key == "AutoShootEnabled" and value then
+        self.Settings.AimEnabled = true
+    end
     if key == "PlayersEnabled" and not value then
         for _, record in pairs(self.Records) do record:Hide() end
     elseif key == "MonsterEnabled" and not value then
@@ -192,6 +196,16 @@ function ESPController:Start()
     )
     self.Aim:Start()
 
+    self.AutoShoot = self.Classes.AutoShootController.new(
+        self.Settings,
+        self.Aim,
+        self.MonsterTracker,
+        function(status)
+            if self.UI then self.UI:SetAutoShootStatus(status) end
+        end
+    )
+    self.AutoShoot:Start()
+
     self.Running = true
     table.insert(self.Connections, RunService.RenderStepped:Connect(function(dt)
         if not self.Running then return end
@@ -250,6 +264,7 @@ function ESPController:Destroy()
     end
     table.clear(self.Connections)
 
+    if self.AutoShoot then self.AutoShoot:Destroy() end
     if self.Aim then self.Aim:Destroy() end
     if self.Tracker then self.Tracker:Destroy() end
     if self.MonsterTracker then self.MonsterTracker:Destroy() end

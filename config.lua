@@ -48,6 +48,11 @@ return {
     AimDistance = 350,
     AimSmoothness = 0.18,
 
+    -- Uses an equipped Tool:Activate; no weapon remotes or damage hacks.
+    AutoShootEnabled = false,
+    AutoShootLineOfSight = true,
+    AutoShootRate = 3, -- activation attempts per second (1-8)
+
     MinFOV = 40,
     MaxFOV = 120,
 }

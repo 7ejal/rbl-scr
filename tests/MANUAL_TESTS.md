@@ -17,6 +17,16 @@
 - [ ] Test quality present as an attribute, as a nested StringValue/NumberValue, and as a clearly labeled TextLabel; verify value updates within one second.
 - [ ] If quality source is Rarity or Grade, label its actual type, not an assumed percentage.
 - [ ] Enable Auto Aim while both a live Dhab and thrown HandCatch are visible. The camera locks only to the live Dhab, never the thrown HandCatch.
+- [ ] Auto Shoot defaults OFF, with Auto Aim either ON/OFF independently.
+- [ ] Turning Auto Shoot ON also enables Auto Aim, and status reports when no Tool is equipped.
+- [ ] Equip a Roblox Tool with an Activated handler. When a live Dhab is centered within 16 pixels, verify bounded Tool activation at the selected 1–8 shots/second rate.
+- [ ] With HandCatch only, Auto Shoot never activates a weapon.
+- [ ] Check no shots when a Dhab is blocked by Terrain or a part and line-of-sight is ON.
+- [ ] Check pressing right mouse is required when the right-mouse setting is ON.
+- [ ] Disable Auto Shoot or Auto Aim while targeting: tool activations immediately stop.
+- [ ] Unequip the Tool: firing stops, status says Equip a Roblox Tool. Verify no accidental tools are equipped.
+- [ ] Custom weapons without Tool.Activated handlers may not fire and require game-specific integration; don't claim otherwise.
+- [ ] Reload script repeatedly and confirm only one AutoShootController / render loop is active.
 - [ ] If there are only HandCatch objects but no live Dhab, auto aim does not move the camera.
 - [ ] Verify right mouse requirement, aim radius and distance settings still work.
 - [ ] Do not create ESP duplicates for child rig models/parts, or for DhabWild container itself.

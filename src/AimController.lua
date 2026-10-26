@@ -1,4 +1,4 @@
--- Monster-only camera aim, no autofire or attack event modification.
+-- Live-Dhab-only camera aim. Auto Shoot is a separate class.
 -- Runs after the standard camera update so Roblox does not overwrite rotation.
 local RunService = game:GetService("RunService")
 local UIS = game:GetService("UserInputService")
@@ -54,7 +54,7 @@ function AimController:BestTarget(camera)
     local character = Players.LocalPlayer.Character
     local ownRoot = character and character:FindFirstChild("HumanoidRootPart")
     local origin = ownRoot and ownRoot.Position or camera.CFrame.Position
-    local bestTarget = nil
+    local bestTarget, bestModel = nil, nil
     local bestScore = math.huge
 
     for target, category in pairs(self.Tracker.Known) do
@@ -82,6 +82,7 @@ function AimController:BestTarget(camera)
                                 if score < bestScore then
                                     bestScore = score
                                     bestTarget = position
+                                    bestModel = target
                                 end
                             end
                         end
@@ -90,7 +91,7 @@ function AimController:BestTarget(camera)
             end
         end
     end
-    return bestTarget
+    return bestTarget, bestModel
 end
 
 function AimController:Update(dt)
