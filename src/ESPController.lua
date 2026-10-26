@@ -89,6 +89,7 @@ end
 
 function ESPController:SetEnabled(enabled)
     self.Settings.Enabled = enabled
+    if self.Store then self.Store:OnSettingChanged("Enabled") end
     self.UI:SetESPEnabled(enabled)
     if not enabled then
         for _, record in pairs(self.Records) do record:Hide() end
@@ -103,6 +104,17 @@ function ESPController:SetSetting(key, value)
     end
 
     self.Settings[key] = value
+    if key == "CameraFOV" and self.FOV then
+        self.FOV:SetFOV(value)
+    end
+    if key:match("^HuntTier") or key == "HuntPriority"
+        or key == "HuntMinLength" or key == "HuntSearchDistance" then
+        if self.Hunt then self.Hunt:Reset() end
+    end
+    if self.Store then
+        self.Store:OnSettingChanged(key)
+        if self.UI then self.UI:SetStorageStatus(self.Store.LastStatus) end
+    end
     if key == "AntiFogEnabled" and self.AntiFog then
         self.AntiFog:SetEnabled(value)
     end
@@ -190,6 +202,10 @@ end
 function ESPController:Start()
     if self.Running or self.Destroyed then return end
 
+    self.Store = self.Classes.SettingsStore.new(self.Settings)
+    self.Store:Load()
+
+    self.Stats = self.Classes.HuntStats.new(self.Settings)
     self.FOV = self.Classes.FOVController.new(self.Settings)
     self.AntiFog = self.Classes.AntiFogController.new()
     self.UI = self.Classes.UIController.new(
@@ -200,6 +216,14 @@ function ESPController:Start()
     )
 
     self.AntiFog:SetEnabled(self.Settings.AntiFogEnabled)
+    self.UI:SetStorageStatus(self.Store.LastStatus)
+    self.UI:SetStatistics(self.Stats:GetSummary())
+    self.UI.OnStatsReset = function()
+        if self.Stats then self.Stats:Reset() end
+    end
+    self.Stats.OnChange = function(summary)
+        if self.UI then self.UI:SetStatistics(summary) end
+    end
     self.UI.OnToggle = function() self:Toggle() end
     self.UI.OnSettingChanged = function(key, value)
         self:SetSetting(key, value)
@@ -273,6 +297,7 @@ function ESPController:Start()
         end
     )
     self.AutoShoot.UI = self.UI
+    self.AutoShoot.Stats = self.Stats
     self.AutoShoot:Start()
 
     self.Hunt = self.Classes.AutoHuntController.new(
@@ -284,7 +309,16 @@ function ESPController:Start()
         end
     )
     self.Hunt.UI = self.UI
+    self.Hunt.Stats = self.Stats
     self.Hunt:Start()
+
+    self.Radar = self.Classes.DhabRadar.new(
+        self.Settings, self.MonsterTracker,
+        self.LocalPlayer:WaitForChild("PlayerGui"),
+        function() return self.Hunt and self.Hunt.Target or nil end
+    )
+    self.Radar:Start()
+    self.StatsRefresh = 0
 
     self.Running = true
     table.insert(self.Connections, RunService.RenderStepped:Connect(function(dt)
@@ -293,6 +327,14 @@ function ESPController:Start()
         if not camera then return end
 
         self.FOV:Update(camera)
+        self.StatsRefresh = self.StatsRefresh + dt
+        if self.StatsRefresh >= 1 then
+            self.StatsRefresh = 0
+            if self.UI and self.Stats then
+                self.UI:SetStatistics(self.Stats:GetSummary())
+                if self.Store then self.UI:SetStorageStatus(self.Store.LastStatus) end
+            end
+        end
 
         -- A periodic rescan accounts for spawned models that receive parts,
         -- humanoids, or tags after they initially enter Workspace.
@@ -346,6 +388,7 @@ function ESPController:Destroy()
     table.clear(self.Connections)
 
     if self.Hunt then self.Hunt:Destroy() end
+    if self.Radar then self.Radar:Destroy() end
     if self.AutoShoot then self.AutoShoot:Destroy() end
     if self.Aim then self.Aim:Destroy() end
     if self.Tracker then self.Tracker:Destroy() end
@@ -361,6 +404,7 @@ function ESPController:Destroy()
     for model in pairs(self.Monsters) do table.insert(monsters, model) end
     for _, model in ipairs(monsters) do self:RemoveMonster(model) end
 
+    if self.Store then self.Store:Destroy() end
     if self.AntiFog then self.AntiFog:Destroy() end
     if self.UI then self.UI:Destroy() end
     if self.FOV then self.FOV:Destroy() end

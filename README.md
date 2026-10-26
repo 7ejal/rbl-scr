@@ -184,3 +184,19 @@ Auto Hunt is implemented in src/AutoHuntController.lua, has a separate English G
 - Cannot hunt while dead, respawning, seated or without a Humanoid. Disabling Hunt, reloading, or stopping the script cancels navigation and releases the selected target.
 - Use Right Ctrl to hide the dashboard so simulated left-click does not click a menu button. The status line shows the target, range, navigation mode or reason for pausing.
 - Dynamic desert terrain or games restricting local character movement may prevent reliable pathfinding. No live Roblox/Xeno testing has been performed; see tests/MANUAL_TESTS.md.
+
+
+## Six improvements to Auto Hunt (October 26, 2026)
+
+All six enhancements are implemented in the feature branch:
+
+1. Smart Target Selection: select Closest, Longest (actual Length attribute) or Largest (actual Scale attribute); filter Tier T1-T6, unknown tiers, and minimum Length. Live Dhab only. Tier is not converted into an unverified rarity.
+2. Better navigation: retries paths and walking around obstructions, detects repeated no-progress episodes, then temporarily skips the unreachable Dhab for 35 seconds. No teleportation.
+3. Smarter shooting: configurable standalone Auto Shoot max distance (default 160 studs) and hunt shooting distance (default 85 studs); both apply in hunt. Existing line-of-sight and centered-aim guards and rate limit remain. Dead targets are not fired on.
+4. Dhab Radar: optional radar overlay (OFF by default), up to 30 live Dhab within customizable range; white center is player, orange are Dhab, green is the chosen hunt target. Camera-relative, client-side.
+5. Hunt Statistics: session duration, targets selected, unreachable skips, shot attempts and input dispatches; confirmed hits/catches are explicitly unavailable without a verified client event. Session-only counters, no invented kills or catch figures. Stats may be toggled off or reset.
+6. Settings Persistence: Statistics page opt-in (OFF by default) saves only whitelisted preferences in a per-PlaceId local JSON file when Xeno implements readfile/writefile. Includes ESP, target tiers, range, priority, input mode, FOV and radar. No secrets are stored. Turning this off writes an opt-out flag. If file APIs are unavailable, script runs normally without persistence.
+
+UI: Sidebar is scrollable for Radar and Statistics tabs, and the Auto Hunt/Auto Shoot pages scroll to show advanced controls. No automatic looting, server damage calls or game-specific remotes have been added.
+
+These are GitHub implementation changes; live Roblox/Xeno behavior is not tested. Custom weapon inputs and PathfindingService may behave differently in the actual game. If no confirmed owner-linked catch event is exposed to the client, the program does NOT fabricate successful catches.

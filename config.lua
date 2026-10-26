@@ -61,6 +61,7 @@ return {
     AutoShootInputMode = "Mouse", -- "Mouse" left click, or "Tool"
     AutoShootLineOfSight = true,
     AutoShootRate = 3, -- activation attempts per second (1-8)
+    AutoShootMaxDistance = 160, -- studs; live-Dhab gate
 
     -- On-foot Auto Hunt. Independent from the manual Aim/Shoot switches.
     -- Auto Hunt movement requires a living, unseated Humanoid character.
@@ -69,10 +70,27 @@ return {
     HuntPauseOnManualMove = true,
     HuntStopDistance = 28, -- studs (10-100)
     HuntSearchDistance = 700, -- studs (100-2000)
+    HuntPriority = "Closest", -- Closest, Longest, Largest
+    HuntMinLength = 0, -- studs
+    HuntTierT1 = true,
+    HuntTierT2 = true,
+    HuntTierT3 = true,
+    HuntTierT4 = true,
+    HuntTierT5 = true,
+    HuntTierT6 = true,
+    HuntTierUnknown = false,
+    HuntShootDistance = 85, -- studs; also subject to AutoShootMaxDistance
+
+    -- Radar and session stats.
+    RadarEnabled = false,
+    RadarRange = 400, -- studs
+    StatsEnabled = true,
+    SaveSettingsEnabled = false, -- explicit opt-in, local file API required
 
     -- Local-only atmospheric visibility. OFF by default.
     AntiFogEnabled = false,
 
+    CameraFOV = 0, -- 0 uses Roblox's initial camera FOV
     MinFOV = 40,
     MaxFOV = 120,
 }

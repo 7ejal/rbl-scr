@@ -82,6 +82,7 @@ function UIController.new(playerGui, settings, fov, janitorClass)
         HandCatchCount = 0,
         CarCount = 0,
         OnQualityScan = nil,
+        OnStatsReset = nil,
         ActivePage = "ESP",
         DraggingFOV = false,
         DraggingWindow = false,
@@ -167,12 +168,15 @@ function UIController.new(playerGui, settings, fov, janitorClass)
     self.PingLabel = label(pingBG, "Ping: -- ms", 10, 0, 102, 36, 12)
 
     -- Sidebar
-    local sidebar = create("Frame", window, {
+    local sidebar = create("ScrollingFrame", window, {
         Name = "Sidebar",
         Position = UDim2.fromOffset(12, 68),
         Size = UDim2.fromOffset(181, 420),
         BackgroundColor3 = COLOR.Sidebar,
         BorderSizePixel = 0,
+        ScrollBarThickness = 3,
+        ScrollingDirection = Enum.ScrollingDirection.Y,
+        CanvasSize = UDim2.fromOffset(0, 535),
     })
     corner(sidebar, 12)
 
@@ -184,17 +188,23 @@ function UIController.new(playerGui, settings, fov, janitorClass)
     })
 
     local tabs = {"Home", "ESP", "Auto Aim", "Auto Shoot", "Auto Hunt",
-        "Monsters", "HandCatch", "Cars", "Quality", "Targets", "Settings"}
+        "Radar", "Statistics", "Monsters", "HandCatch", "Cars", "Quality",
+        "Targets", "Settings"}
     for index, name in ipairs(tabs) do
         local tab = button(sidebar, name, 10, 10 + (index - 1) * 37, 161, 32, COLOR.Sidebar)
         self.Tabs[name] = tab
         self.Janitor:Add(tab.MouseButton1Click:Connect(function()
             self:ShowPage(name)
         end))
-        local page = create("Frame", mainArea, {
+        local scrollable = name == "Auto Hunt" or name == "Auto Shoot"
+        local page = create(scrollable and "ScrollingFrame" or "Frame", mainArea, {
             Name = name .. "Page",
             Size = UDim2.fromScale(1, 1),
             BackgroundTransparency = 1,
+            BorderSizePixel = 0,
+            ScrollBarThickness = scrollable and 4 or 0,
+            CanvasSize = scrollable and UDim2.fromOffset(0,
+                name == "Auto Hunt" and 1130 or 560) or nil,
             Visible = false,
         })
         self.Pages[name] = page
@@ -475,6 +485,27 @@ function UIController.new(playerGui, settings, fov, janitorClass)
     self.AutoShootStatusLabel.TextTruncate = Enum.TextTruncate.None
     self.AutoShootStatusLabel.TextColor3 = COLOR.Muted
 
+    local shootRangePanel = create("Frame", shooter, {
+        Position = UDim2.fromOffset(0, 422),
+        Size = UDim2.fromOffset(461, 90),
+        BackgroundColor3 = COLOR.Sidebar, BorderSizePixel = 0,
+    })
+    corner(shootRangePanel, 8)
+    self.ShootDistanceLabel = label(shootRangePanel,
+        "Max shooting distance", 14, 5, 420, 28, 14)
+    local lessRange = button(shootRangePanel, "- 10 studs",
+        12, 41, 140, 35, COLOR.Row)
+    local moreRange = button(shootRangePanel, "+ 10 studs",
+        162, 41, 140, 35, COLOR.Row)
+    self.Janitor:Add(lessRange.MouseButton1Click:Connect(function()
+        self:ChangeSetting("AutoShootMaxDistance", math.clamp(
+            self.Settings.AutoShootMaxDistance - 10, 10, 500))
+    end))
+    self.Janitor:Add(moreRange.MouseButton1Click:Connect(function()
+        self:ChangeSetting("AutoShootMaxDistance", math.clamp(
+            self.Settings.AutoShootMaxDistance + 10, 10, 500))
+    end))
+
     -- Auto Hunt: pathfinding movement + the existing live-Dhab aim/shoot.
     -- Does not teleport, equip Tools, fire remotes, target cars or collect loot.
     local hunt = self.Pages["Auto Hunt"]
@@ -531,6 +562,81 @@ function UIController.new(playerGui, settings, fov, janitorClass)
     self.HuntStatusLabel.TextWrapped = true
     self.HuntStatusLabel.TextTruncate = Enum.TextTruncate.None
     self.HuntStatusLabel.TextColor3 = COLOR.Muted
+
+    -- Hunting preferences (scroll the Auto Hunt page for advanced settings).
+    self.HuntPriorityBtn = button(hunt,
+        "Target priority: Closest", 0, 427, 290, 38, COLOR.Sidebar)
+    self.Janitor:Add(self.HuntPriorityBtn.MouseButton1Click:Connect(function()
+        local order = {Closest = "Longest", Longest = "Largest", Largest = "Closest"}
+        self:ChangeSetting("HuntPriority",
+            order[self.Settings.HuntPriority] or "Closest")
+    end))
+    label(hunt, "Allowed Dhab tiers", 10, 470, 340, 25, 14)
+    self:ToggleRow(hunt, "Tier T1", "HuntTierT1", 499)
+    self:ToggleRow(hunt, "Tier T2", "HuntTierT2", 546)
+    self:ToggleRow(hunt, "Tier T3", "HuntTierT3", 593)
+    self:ToggleRow(hunt, "Tier T4", "HuntTierT4", 640)
+    self:ToggleRow(hunt, "Tier T5", "HuntTierT5", 687)
+    self:ToggleRow(hunt, "Tier T6", "HuntTierT6", 734)
+    self:ToggleRow(hunt, "Unknown Tier", "HuntTierUnknown", 781)
+    huntNumberPanel(836, "Minimum Length", "HuntMinLength", 0.5, 0, 12, " studs")
+    huntNumberPanel(919, "Hunt shooting distance", "HuntShootDistance",
+        10, 10, 500, " studs")
+    local huntFoot = label(hunt,
+        "Unreachable targets are skipped temporarily. Size uses the model's actual Scale attribute. No fabricated rarity data.",
+        10, 1005, 438, 70, 12)
+    huntFoot.TextWrapped = true
+    huntFoot.TextTruncate = Enum.TextTruncate.None
+    huntFoot.TextYAlignment = Enum.TextYAlignment.Top
+    huntFoot.TextColor3 = COLOR.Muted
+
+    -- Radar page: nearby live Dhab, highlighted hunt target and distances.
+    local radarPage = self.Pages.Radar
+    self:ToggleRow(radarPage, "Show Dhab radar overlay", "RadarEnabled", 0)
+    local rangePanel = create("Frame", radarPage, {
+        Position = UDim2.fromOffset(0, 61),
+        Size = UDim2.fromOffset(461, 100),
+        BackgroundColor3 = COLOR.Sidebar, BorderSizePixel = 0,
+    })
+    corner(rangePanel, 8)
+    self.RadarRangeLabel = label(rangePanel, "Radar range", 12, 5, 430, 30, 14)
+    local radarLess = button(rangePanel, "- 100 studs", 12, 45, 150, 39, COLOR.Row)
+    local radarMore = button(rangePanel, "+ 100 studs", 172, 45, 150, 39, COLOR.Row)
+    self.Janitor:Add(radarLess.MouseButton1Click:Connect(function()
+        self:ChangeSetting("RadarRange", math.clamp(
+            self.Settings.RadarRange - 100, 100, 2000))
+    end))
+    self.Janitor:Add(radarMore.MouseButton1Click:Connect(function()
+        self:ChangeSetting("RadarRange", math.clamp(
+            self.Settings.RadarRange + 100, 100, 2000))
+    end))
+    local radarHint = label(radarPage,
+        "Orange = nearby Dhab. Green = your selected hunt target. Center = you. Radar rotates with your camera.",
+        12, 174, 440, 83, 13)
+    radarHint.TextWrapped = true
+    radarHint.TextTruncate = Enum.TextTruncate.None
+    radarHint.TextYAlignment = Enum.TextYAlignment.Top
+
+    -- Session statistics and explicitly opt-in local settings persistence.
+    local statsPage = self.Pages.Statistics
+    self:ToggleRow(statsPage, "Collect session statistics", "StatsEnabled", 0)
+    self:ToggleRow(statsPage, "Save preferences locally", "SaveSettingsEnabled", 50)
+    self.StatsLabel = label(statsPage, "No hunt activity yet",
+        11, 112, 438, 179, 13)
+    self.StatsLabel.TextWrapped = true
+    self.StatsLabel.TextTruncate = Enum.TextTruncate.None
+    self.StatsLabel.TextYAlignment = Enum.TextYAlignment.Top
+    self.ResetStatsButton = button(statsPage, "Reset session stats",
+        11, 305, 210, 37, COLOR.Row)
+    self.Janitor:Add(self.ResetStatsButton.MouseButton1Click:Connect(function()
+        if self.OnStatsReset then self.OnStatsReset() end
+    end))
+    self.StorageLabel = label(statsPage,
+        "Local save requires readfile and writefile in Xeno",
+        11, 350, 440, 60, 12)
+    self.StorageLabel.TextWrapped = true
+    self.StorageLabel.TextTruncate = Enum.TextTruncate.None
+    self.StorageLabel.TextColor3 = COLOR.Muted
 
     -- Targets tab: users can register the real model name without guessing IDs.
     local targets = self.Pages.Targets
@@ -606,6 +712,7 @@ function UIController.new(playerGui, settings, fov, janitorClass)
     local resetFOV = button(settingsPage, "Reset camera FOV", 0, 366, 220, 42, COLOR.Row)
     self.Janitor:Add(resetFOV.MouseButton1Click:Connect(function()
         self.FOV:SetFOV(self.FOV.Original)
+        self:ChangeSetting("CameraFOV", self.FOV:GetFOV())
         self:DrawFOV()
     end))
 
@@ -752,6 +859,10 @@ function UIController:Refresh()
     end
     self.RangeLabel.Text = "ESP detection distance: "
         .. tostring(self.Settings.MaxDistance) .. " studs"
+    if self.ShootDistanceLabel then
+        self.ShootDistanceLabel.Text = "Max shooting distance: " ..
+            tostring(self.Settings.AutoShootMaxDistance) .. " studs"
+    end
     if self.ShootModeButton then
         self.ShootModeButton.Text = self.Settings.AutoShootInputMode == "Tool"
             and "Fire input: Tool" or "Fire input: Left Click"
@@ -759,6 +870,14 @@ function UIController:Refresh()
     if self.ShootRateLabel then
         self.ShootRateLabel.Text = "Firing rate: " ..
             tostring(self.Settings.AutoShootRate) .. " shots/sec"
+    end
+    if self.HuntPriorityBtn then
+        self.HuntPriorityBtn.Text = "Target priority: " ..
+            tostring(self.Settings.HuntPriority)
+    end
+    if self.RadarRangeLabel then
+        self.RadarRangeLabel.Text = "Radar range: " ..
+            tostring(self.Settings.RadarRange) .. " studs"
     end
     if self.HuntLabels then
         for key, entry in pairs(self.HuntLabels) do
@@ -777,6 +896,17 @@ end
 function UIController:SetESPEnabled(enabled)
     self.Settings.Enabled = enabled
     self:Refresh()
+end
+
+function UIController:SetStatistics(summary)
+    if self.StatsLabel then
+        self.StatsLabel.Text = self.Settings.StatsEnabled
+            and tostring(summary) or "Session statistics disabled"
+    end
+end
+
+function UIController:SetStorageStatus(status)
+    if self.StorageLabel then self.StorageLabel.Text = tostring(status) end
 end
 
 function UIController:SetAutoHuntStatus(status)
@@ -843,6 +973,7 @@ function UIController:UpdateFOVFromX(x)
         self.Settings.MinFOV + fraction *
             (self.Settings.MaxFOV - self.Settings.MinFOV)
     )
+    self:ChangeSetting("CameraFOV", self.FOV:GetFOV())
     self:DrawFOV()
 end
 

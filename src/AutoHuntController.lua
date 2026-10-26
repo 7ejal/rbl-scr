@@ -54,6 +54,11 @@ function AutoHuntController.new(settings, tracker, aimController, onStatus)
         LastPosition = nil,
         LastMovedAt = os.clock(),
         UI = nil,
+        Stats = nil,
+        Unreachable = setmetatable({}, {__mode = "k"}),
+        FailedRoutes = setmetatable({}, {__mode = "k"}),
+        StuckAttempts = 0,
+        LastPathTarget = nil,
     }, AutoHuntController)
 end
 
@@ -75,11 +80,28 @@ function AutoHuntController:Character()
     return humanoid, root
 end
 
+function AutoHuntController:AllowedTier(model)
+    local tier = model:GetAttribute("Tier")
+    local key = type(tier) == "string" and ("HuntTier" .. tier) or "HuntTierUnknown"
+    local allowed = self.Settings[key]
+    if allowed ~= true then return false end
+    local minLength = math.max(0, self.Settings.HuntMinLength or 0)
+    if minLength > 0 then
+        local length = model:GetAttribute("Length")
+        if type(length) ~= "number" or length < minLength then
+            return false
+        end
+    end
+    return true
+end
+
 function AutoHuntController:ValidTarget(model, origin)
     if not model or not model:IsDescendantOf(workspace)
         or not self.Tracker:IsDhab(model)
         or self.Tracker.Known[model] ~= "monster"
-        or not alive(model) then
+        or not alive(model)
+        or not self:AllowedTier(model)
+        or (self.Unreachable[model] or 0) > os.clock() then
         return nil
     end
     local location = positionOf(model)
@@ -92,16 +114,26 @@ function AutoHuntController:ValidTarget(model, origin)
 end
 
 function AutoHuntController:ClosestDhab(origin)
-    local nearest, nearestDistance = nil, math.huge
+    local best, bestScore, bestDistance = nil, -math.huge, math.huge
+    local priority = self.Settings.HuntPriority or "Closest"
     for model, category in pairs(self.Tracker.Known) do
         if category == "monster" and self.Tracker:IsDhab(model) then
             local location, distance = self:ValidTarget(model, origin)
-            if location and distance < nearestDistance then
-                nearest, nearestDistance = model, distance
+            if location then
+                local score = -distance
+                if priority == "Longest" then
+                    score = (tonumber(model:GetAttribute("Length")) or -1) * 10000
+                elseif priority == "Largest" then
+                    score = (tonumber(model:GetAttribute("Scale")) or -1) * 10000
+                end
+                if score > bestScore or (score == bestScore
+                    and distance < bestDistance) then
+                    best, bestScore, bestDistance = model, score, distance
+                end
             end
         end
     end
-    return nearest
+    return best
 end
 
 function AutoHuntController:ClearPath()
@@ -110,6 +142,17 @@ function AutoHuntController:ClearPath()
     self.WaypointIndex = 1
     self.LastDestination = nil
     self.Computing = false
+end
+
+function AutoHuntController:SkipUnreachable(reason)
+    local model = self.Target
+    if model then
+        self.Unreachable[model] = os.clock() + 35
+        self.FailedRoutes[model] = nil
+        if self.Stats then self.Stats:RecordSkipped() end
+    end
+    self:Reset()
+    self:SetStatus(reason or "Target unreachable; trying another Dhab")
 end
 
 function AutoHuntController:StopMovement()
@@ -126,6 +169,7 @@ function AutoHuntController:Reset()
     self:StopMovement()
     self:ClearPath()
     self.Target = nil
+    self.StuckAttempts = 0
     if self.Aim then self.Aim:SetHuntTarget(nil) end
     self.LastPosition = nil
     self.LastMovedAt = os.clock()
@@ -187,10 +231,17 @@ function AutoHuntController:RequestPath(origin, destination)
         if ok and path.Status == Enum.PathStatus.Success then
             self.Waypoints = path:GetWaypoints()
             self.WaypointIndex = math.min(2, #self.Waypoints)
+            if self.Target then self.FailedRoutes[self.Target] = 0 end
         else
-            -- Path may fail on dynamic/desert terrain; normal MoveTo is fallback.
             self.Waypoints = nil
             self.WaypointIndex = 1
+            if self.Target then
+                local failures = (self.FailedRoutes[self.Target] or 0) + 1
+                self.FailedRoutes[self.Target] = failures
+                if failures >= 3 then
+                    self:SkipUnreachable("No navigable route; skipping target")
+                end
+            end
         end
     end)
 end
@@ -218,6 +269,7 @@ function AutoHuntController:Update()
     if not location then
         self:Reset()
         self.Target = self:ClosestDhab(root.Position)
+        if self.Target and self.Stats then self.Stats:RecordTarget() end
         location, distance = self:ValidTarget(self.Target, root.Position)
     end
     if not location then
@@ -242,13 +294,19 @@ function AutoHuntController:Update()
         or (root.Position - self.LastPosition).Magnitude >= 3 then
         self.LastPosition = root.Position
         self.LastMovedAt = now
+        self.StuckAttempts = 0
     elseif now - self.LastMovedAt > 5 then
+        self.StuckAttempts = self.StuckAttempts + 1
+        if self.StuckAttempts >= 3 then
+            self:SkipUnreachable("Stuck three times; skipping Dhab")
+            return
+        end
         self:ClearPath()
         if humanoid.FloorMaterial ~= Enum.Material.Air then
             humanoid.Jump = true
         end
         self.LastMovedAt = now
-        self:SetStatus("Finding route around obstacle")
+        self:SetStatus("Replanning blocked path")
     end
 
     self:RequestPath(root.Position, location)

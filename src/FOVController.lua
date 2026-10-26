@@ -8,7 +8,11 @@ function FOVController.new(settings)
     return setmetatable({
         Settings = settings,
         Original = original,
-        Value = math.clamp(math.round(original), settings.MinFOV, settings.MaxFOV),
+        Value = math.clamp(
+            math.round((settings.CameraFOV or 0) > 0
+                and settings.CameraFOV or original),
+            settings.MinFOV, settings.MaxFOV
+        ),
         Active = true,
     }, FOVController)
 end

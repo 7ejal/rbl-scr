@@ -21,6 +21,7 @@ function AutoShootController.new(settings, aimController, monsterTracker, onStat
         LastShot = -math.huge,
         LastTool = nil,
         MouseRelease = nil,
+        Stats = nil,
         UI = nil,
     }, AutoShootController)
 end
@@ -206,6 +207,28 @@ function AutoShootController:Update()
         return
     end
 
+    -- Never fire past the configured range, even if the camera can aim.
+    local character = Players.LocalPlayer.Character
+    local playerRoot = character and character:FindFirstChild("HumanoidRootPart")
+    local origin = playerRoot and playerRoot.Position or camera.CFrame.Position
+    local range = math.clamp(settings.AutoShootMaxDistance or 160, 10, 500)
+    if huntFire then
+        range = math.min(range, math.clamp(settings.HuntShootDistance or 85, 10, 500))
+    end
+    if (position - origin).Magnitude > range then
+        self:SetStatus("Approaching firing range: " .. tostring(range) .. " studs")
+        return
+    end
+    local humanoid = target:FindFirstChildOfClass("Humanoid")
+    local health = target:GetAttribute("Health")
+    local state = target:GetAttribute("State")
+    if (humanoid and humanoid.Health <= 0)
+        or (type(health) == "number" and health <= 0)
+        or state == "dead" or state == "death" then
+        self:SetStatus("Target no longer alive")
+        return
+    end
+
     local inputMode = settings.AutoShootInputMode or "Mouse"
     local tool = self:GetEquippedTool()
     if inputMode == "Tool" and not tool then
@@ -229,6 +252,7 @@ function AutoShootController:Update()
     end
 
     self.LastShot = now
+    if self.Stats then self.Stats:RecordShotAttempt() end
     local success, err
     if inputMode == "Mouse" then
         success, err = self:FireMouse()
@@ -242,6 +266,7 @@ function AutoShootController:Update()
         self:SetStatus(err or "Input method unavailable")
         return
     end
+    if self.Stats then self.Stats:RecordShotDispatched() end
     self:SetStatus(inputMode == "Mouse" and
         "Auto shooting: left click" or ("Auto shooting: Tool " .. tool.Name))
 end

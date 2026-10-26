@@ -126,3 +126,20 @@
 - [ ] Re-executing the loader, toggling Hunt OFF or calling IvoryESP_Stop cancels active movement and navigation.
 - [ ] Pathfinding errors fall back to non-teleport movement; no repeated unhandled errors.
 - [ ] Other features, especially Anti Fog, Cars, HandCatch, Quality and standalone Auto Shoot, remain unchanged.
+
+
+## Six-feature acceptance checklist (live Roblox/Xeno tests pending)
+
+- [ ] Closest/Longest/Largest priorities select correct live Dhab based on distance, actual Length and Scale.
+- [ ] Tier T1–T6/Unknown switches and minimum Length filter exclude wrong models and prevent unwanted movement.
+- [ ] Adjusting filters/priority/radius resets the hunter's target safely.
+- [ ] Stuck pathfinding retries, then skips an unreachable model temporarily without teleporting.
+- [ ] Shooting obeys standalone and hunt distance caps, line-of-sight and alive checks.
+- [ ] Radar shows nearby live Dhab and green selected target; hides if toggle OFF and cleans on reload.
+- [ ] Stats count elapsed time, selected targets, skips, shooting attempts and dispatched inputs, never unverifiable catches.
+- [ ] Turning Stats OFF suppresses recording, reset zeroes session counters.
+- [ ] 13-tab sidebar and long Hunt/Shoot pages scroll and all GUI buttons remain clickable.
+- [ ] Opt-in file saving restores settings, including FOV, when Xeno supports readfile and writefile.
+- [ ] Turning opt-in OFF writes disabled marker, and corrupted/missing JSON gracefully restores defaults.
+- [ ] Unsupported file APIs still allow all features without persistence, while reporting storage unavailability.
+- [ ] Other ESP, Cars, HandCatch, Quality and Anti Fog unaffected; reload/stop disconnects all new loops.

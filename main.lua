@@ -160,7 +160,7 @@ local ok, response = pcall(function()
         "MonsterESP", "MonsterTracker", "MonsterInspector",
         "QualityResolver", "QualityESP", "DhabStatsESP", "HandCatchESP", "CarESP",
         "AimController", "AutoShootController", "AutoHuntController",
-        "FOVController",
+        "DhabRadar", "HuntStats", "SettingsStore", "FOVController",
         "AntiFogController", "UIController",
         "KeybindController", "ESPController",
     }
