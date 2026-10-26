@@ -138,18 +138,22 @@ end
 
 function AutoShootController:Update()
     local settings = self.Settings
-    if not settings.AutoShootEnabled then
+    -- Auto Hunt can use the existing shooter without changing the
+    -- independent Auto Shoot toggle. Turning Hunt off stops hunt-only fire.
+    local huntFire = settings.AutoHuntEnabled and settings.HuntAutoShoot
+    if not settings.AutoShootEnabled and not huntFire then
         self:ReleaseMouse()
         self:SetStatus("OFF")
         return
     end
-    if not settings.AimEnabled then
+    if not settings.AimEnabled and not settings.AutoHuntEnabled then
         self:ReleaseMouse()
         self:SetStatus("Enable Auto Aim first")
         return
     end
-    if settings.AimHoldRightMouse and not UIS:IsMouseButtonPressed(
-        Enum.UserInputType.MouseButton2) then
+    if settings.AimHoldRightMouse and not huntFire
+        and not UIS:IsMouseButtonPressed(
+            Enum.UserInputType.MouseButton2) then
         self:ReleaseMouse()
         self:SetStatus("Hold right mouse to aim and shoot")
         return

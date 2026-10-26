@@ -62,6 +62,14 @@ return {
     AutoShootLineOfSight = true,
     AutoShootRate = 3, -- activation attempts per second (1-8)
 
+    -- On-foot Auto Hunt. Independent from the manual Aim/Shoot switches.
+    -- Auto Hunt movement requires a living, unseated Humanoid character.
+    AutoHuntEnabled = false,
+    HuntAutoShoot = true,
+    HuntPauseOnManualMove = true,
+    HuntStopDistance = 28, -- studs (10-100)
+    HuntSearchDistance = 700, -- studs (100-2000)
+
     -- Local-only atmospheric visibility. OFF by default.
     AntiFogEnabled = false,
 

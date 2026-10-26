@@ -106,6 +106,10 @@ function ESPController:SetSetting(key, value)
     if key == "AntiFogEnabled" and self.AntiFog then
         self.AntiFog:SetEnabled(value)
     end
+    if key == "AutoHuntEnabled" and not value and self.Hunt then
+        self.Hunt:Reset()
+        self.Hunt:SetStatus("OFF")
+    end
     -- Auto Shoot depends on camera aim; activating shooting enables aim too.
     if key == "AutoShootEnabled" and value then
         self.Settings.AimEnabled = true
@@ -271,6 +275,17 @@ function ESPController:Start()
     self.AutoShoot.UI = self.UI
     self.AutoShoot:Start()
 
+    self.Hunt = self.Classes.AutoHuntController.new(
+        self.Settings,
+        self.MonsterTracker,
+        self.Aim,
+        function(status)
+            if self.UI then self.UI:SetAutoHuntStatus(status) end
+        end
+    )
+    self.Hunt.UI = self.UI
+    self.Hunt:Start()
+
     self.Running = true
     table.insert(self.Connections, RunService.RenderStepped:Connect(function(dt)
         if not self.Running then return end
@@ -330,6 +345,7 @@ function ESPController:Destroy()
     end
     table.clear(self.Connections)
 
+    if self.Hunt then self.Hunt:Destroy() end
     if self.AutoShoot then self.AutoShoot:Destroy() end
     if self.Aim then self.Aim:Destroy() end
     if self.Tracker then self.Tracker:Destroy() end

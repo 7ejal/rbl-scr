@@ -169,3 +169,18 @@ Tier T2 | Length 5.42 studs | Size 2.15x
 ```
 
 Movement State and unverified Quality/Rarity no longer appear in the standard Dhab ESP label or nearby O-key summary. `DhabQualityEnabled` and `HandCatchQuality` default OFF to avoid clutter from `Quality: Unknown`. The optional quality diagnostic remains available for further investigation but is not required for ESP. Switch **Quality → Show Dhab Tier / Length / Size** to control the three-field label. Other existing ESP, Auto Aim, Auto Shoot, Cars and Anti Fog settings are unchanged.
+
+
+## Auto Hunt: live Dhab only
+
+Auto Hunt is implemented in src/AutoHuntController.lua, has a separate English GUI page, and is **OFF by default**.
+
+- Searches for the nearest living, replicated Dhab model within the chosen search radius (default 700 studs, adjustable 100–2000).
+- Uses normal Humanoid:MoveTo and PathfindingService for walking toward the Dhab. No teleportation, vehicle control, item pickup or server remotes.
+- Stops at the configured distance (default 28 studs, adjustable 10–100). Retargets when the animal disappears or dies.
+- Aims at that exact Dhab when it enters the existing camera AimDistance. Never hunts cars, HandCatch, vendors, player characters or scenery.
+- The Auto Shoot during hunt toggle (ON by default, but no effect until Auto Hunt itself is turned ON) invokes the existing left-click or Tool shooter, with line-of-sight, centering and rate checks. Turning Hunt off also turns off its implicit shooting; independent Auto Shoot settings are never overwritten.
+- Pauses automatic walking while WASD/arrow keys are pressed or a text box is focused. Resumes after manual movement stops.
+- Cannot hunt while dead, respawning, seated or without a Humanoid. Disabling Hunt, reloading, or stopping the script cancels navigation and releases the selected target.
+- Use Right Ctrl to hide the dashboard so simulated left-click does not click a menu button. The status line shows the target, range, navigation mode or reason for pausing.
+- Dynamic desert terrain or games restricting local character movement may prevent reliable pathfinding. No live Roblox/Xeno testing has been performed; see tests/MANUAL_TESTS.md.

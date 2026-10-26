@@ -48,12 +48,41 @@ function AimController.new(settings, tracker, playerGui)
     return self
 end
 
+function AimController:SetHuntTarget(model)
+    self.HuntTarget = model
+end
+
 function AimController:BestTarget(camera)
     local settings = self.Settings
     local center = camera.ViewportSize / 2
     local character = Players.LocalPlayer.Character
     local ownRoot = character and character:FindFirstChild("HumanoidRootPart")
     local origin = ownRoot and ownRoot.Position or camera.CFrame.Position
+
+    -- Hunt mode uses the selected live Dhab, even if it is initially
+    -- outside the reticle. Aim starts after walking into AimDistance.
+    -- Never select a second model while the hunter is following one.
+    if settings.AutoHuntEnabled then
+        local hunted = self.HuntTarget
+        if hunted and hunted:IsDescendantOf(workspace)
+            and self.Tracker:IsDhab(hunted)
+            and self.Tracker.Known[hunted] == "monster" then
+            local humanoid = hunted:FindFirstChildOfClass("Humanoid")
+            local health = hunted:GetAttribute("Health")
+            local state = hunted:GetAttribute("State")
+            local active = (not humanoid or humanoid.Health > 0)
+                and (type(health) ~= "number" or health > 0)
+                and state ~= "dead" and state ~= "death"
+            if active then
+                local focus = focusPosition(hunted)
+                if focus and (focus - origin).Magnitude <= settings.AimDistance then
+                    return focus, hunted
+                end
+            end
+        end
+        return nil, nil
+    end
+
     local bestTarget, bestModel = nil, nil
     local bestScore = math.huge
 
@@ -107,10 +136,13 @@ function AimController:Update(dt)
     self.Circle.Position = UDim2.fromOffset(
         camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2
     )
-    self.Circle.Visible = settings.AimEnabled and settings.AimShowCircle
+    self.Circle.Visible = (settings.AimEnabled or settings.AutoHuntEnabled)
+        and settings.AimShowCircle
 
-    if not settings.AimEnabled then return end
-    if settings.AimHoldRightMouse and not UIS:IsMouseButtonPressed(
+    if not settings.AimEnabled and not settings.AutoHuntEnabled then return end
+    if not settings.AutoHuntEnabled
+        and settings.AimHoldRightMouse
+        and not UIS:IsMouseButtonPressed(
         Enum.UserInputType.MouseButton2) then
         return
     end

@@ -108,3 +108,21 @@
 - [ ] Press O to display Tier, Length and Size only for Dhab stats; no inferred rarity/quality.
 - [ ] Quality-tab stats toggle is labeled `Show Dhab Tier / Length / Size` and enables/disables the label correctly.
 - [ ] Existing auto-aim, auto-shoot and car filters remain unaffected.
+
+
+## Auto Hunt manual testing (not yet run)
+
+- [ ] Auto Hunt starts OFF, appears as an English sidebar page, and can be toggled.
+- [ ] With zero Dhab, no movement or firing occurs and the status explains why.
+- [ ] Select the nearest live Dhab under Workspace.DhabWild, not cars, HandCatch, players or vendors.
+- [ ] Normal walking/pathfinding approaches the Dhab and stops at the requested distance.
+- [ ] Stop distance and search radius buttons change values within limits.
+- [ ] Auto Aim follows the selected Dhab once close enough, even when initially outside the crosshair circle.
+- [ ] Auto Shoot during hunt uses current Left Click/Tool setting, centered-on-target, line-of-sight and rate limits.
+- [ ] Disabling hunt-only shooting stops it unless independent Auto Shoot is also ON.
+- [ ] Holding WASD/arrow keys pauses movement; releasing resumes. Typing into a textbox also pauses.
+- [ ] Death, respawn, seat/vehicle, and missing humanoid pause and reset the navigation state safely.
+- [ ] Removing, killing or moving the Dhab out of radius causes safe retarget.
+- [ ] Re-executing the loader, toggling Hunt OFF or calling IvoryESP_Stop cancels active movement and navigation.
+- [ ] Pathfinding errors fall back to non-teleport movement; no repeated unhandled errors.
+- [ ] Other features, especially Anti Fog, Cars, HandCatch, Quality and standalone Auto Shoot, remain unchanged.

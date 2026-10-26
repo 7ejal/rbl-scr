@@ -183,10 +183,10 @@ function UIController.new(playerGui, settings, fov, janitorClass)
         BackgroundTransparency = 1,
     })
 
-    local tabs = {"Home", "ESP", "Auto Aim", "Auto Shoot", "Monsters",
-        "HandCatch", "Cars", "Quality", "Targets", "Settings"}
+    local tabs = {"Home", "ESP", "Auto Aim", "Auto Shoot", "Auto Hunt",
+        "Monsters", "HandCatch", "Cars", "Quality", "Targets", "Settings"}
     for index, name in ipairs(tabs) do
-        local tab = button(sidebar, name, 10, 10 + (index - 1) * 40, 161, 35, COLOR.Sidebar)
+        local tab = button(sidebar, name, 10, 10 + (index - 1) * 37, 161, 32, COLOR.Sidebar)
         self.Tabs[name] = tab
         self.Janitor:Add(tab.MouseButton1Click:Connect(function()
             self:ShowPage(name)
@@ -475,6 +475,63 @@ function UIController.new(playerGui, settings, fov, janitorClass)
     self.AutoShootStatusLabel.TextTruncate = Enum.TextTruncate.None
     self.AutoShootStatusLabel.TextColor3 = COLOR.Muted
 
+    -- Auto Hunt: pathfinding movement + the existing live-Dhab aim/shoot.
+    -- Does not teleport, equip Tools, fire remotes, target cars or collect loot.
+    local hunt = self.Pages["Auto Hunt"]
+    self:ToggleRow(hunt, "Auto Hunt (follow live Dhab)", "AutoHuntEnabled", 0)
+    self:ToggleRow(hunt, "Auto Shoot during hunt", "HuntAutoShoot", 47)
+    self:ToggleRow(hunt, "Pause on manual movement", "HuntPauseOnManualMove", 94)
+    local huntInfo = label(hunt,
+        "Walk to nearest live Dhab via pathfinding. Aims in range. For left-click weapons, hide this menu with Right Ctrl.",
+        9, 141, 448, 47, 12)
+    huntInfo.TextWrapped = true
+    huntInfo.TextTruncate = Enum.TextTruncate.None
+    huntInfo.TextYAlignment = Enum.TextYAlignment.Top
+    huntInfo.TextColor3 = COLOR.Muted
+
+    local function huntNumberPanel(y, title, key, increment, minValue, maxValue, unit)
+        local panel = create("Frame", hunt, {
+            Position = UDim2.fromOffset(0, y),
+            Size = UDim2.fromOffset(461, 75),
+            BackgroundColor3 = COLOR.Sidebar,
+            BorderSizePixel = 0,
+        })
+        corner(panel, 8)
+        local display = label(panel, title, 15, 4, 420, 27, 14)
+        local decrease = button(panel, "-" .. tostring(increment) .. unit,
+            15, 36, 119, 32, COLOR.Row)
+        local increase = button(panel, "+" .. tostring(increment) .. unit,
+            143, 36, 119, 32, COLOR.Row)
+        self.HuntLabels[key] = {Label = display, Title = title, Unit = unit}
+        local function change(delta)
+            self:ChangeSetting(key, math.clamp(
+                self.Settings[key] + delta, minValue, maxValue
+            ))
+        end
+        self.Janitor:Add(decrease.MouseButton1Click:Connect(function()
+            change(-increment)
+        end))
+        self.Janitor:Add(increase.MouseButton1Click:Connect(function()
+            change(increment)
+        end))
+    end
+    self.HuntLabels = {}
+    huntNumberPanel(185, "Stop distance", "HuntStopDistance", 5, 10, 100, " studs")
+    huntNumberPanel(266, "Search radius", "HuntSearchDistance", 100, 100, 2000, " studs")
+
+    local huntStatus = create("Frame", hunt, {
+        Position = UDim2.fromOffset(0, 350),
+        Size = UDim2.fromOffset(461, 64),
+        BackgroundColor3 = COLOR.Sidebar,
+        BorderSizePixel = 0,
+    })
+    corner(huntStatus, 8)
+    self.HuntStatusLabel = label(huntStatus, "Auto Hunt: OFF",
+        13, 6, 435, 52, 12)
+    self.HuntStatusLabel.TextWrapped = true
+    self.HuntStatusLabel.TextTruncate = Enum.TextTruncate.None
+    self.HuntStatusLabel.TextColor3 = COLOR.Muted
+
     -- Targets tab: users can register the real model name without guessing IDs.
     local targets = self.Pages.Targets
     local helper = label(targets,
@@ -703,6 +760,12 @@ function UIController:Refresh()
         self.ShootRateLabel.Text = "Firing rate: " ..
             tostring(self.Settings.AutoShootRate) .. " shots/sec"
     end
+    if self.HuntLabels then
+        for key, entry in pairs(self.HuntLabels) do
+            entry.Label.Text = entry.Title .. ": " ..
+                tostring(self.Settings[key]) .. entry.Unit
+        end
+    end
     if self.AimLabels then
         for key, entry in pairs(self.AimLabels) do
             local value = self.Settings[key]
@@ -714,6 +777,12 @@ end
 function UIController:SetESPEnabled(enabled)
     self.Settings.Enabled = enabled
     self:Refresh()
+end
+
+function UIController:SetAutoHuntStatus(status)
+    if self.HuntStatusLabel then
+        self.HuntStatusLabel.Text = tostring(status)
+    end
 end
 
 function UIController:SetAutoShootStatus(status)
