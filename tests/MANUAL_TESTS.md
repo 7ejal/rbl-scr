@@ -186,3 +186,17 @@
 - [ ] Advanced and Diagnostics scrollable/regular page properties are valid (no Frame.ScrollBarThickness runtime error).
 - [ ] All new modules referenced in main.lua exist, return a class, and have clean destruction handlers.
 - [ ] Xeno with no keyboard injection API still loads, remains responsive and displays an honest error. No promises of car movement until live-tested.
+
+
+## Regression: 120 km/h vehicle chase and W held (live Xeno testing required)
+
+- [ ] Existing driver Seat/VehicleSeat car hunt activates only for LocalPlayer's occupied car in Workspace.PlayersCars.
+- [ ] New default speed target is 120 km/h (119 studs/sec at Roblox nominal scale), 30–180 km/h range through Auto Hunt GUI.
+- [ ] Keyboard mode does not write ThrottleFloat=0 each frame. W remains held below speed target, and A/D steer simultaneously.
+- [ ] Cruise hysteresis (resume W at target minus 8 km/h, release at target plus 3 km/h) prevents repeated short taps at the threshold.
+- [ ] Saved legacy HuntCarMaxSpeed (32 studs/s) is ignored in favor of new HuntCarTargetKmh default 120.
+- [ ] Dhab model itself and drivable ground slope are not treated as obstacles; toggle brake for obstacles when debugging false positives.
+- [ ] At high speed approaching an animal the controller may coast early for safety; hunt status explicitly says Near Dhab.
+- [ ] After short update lag (<2 sec) the controller does not unnecessarily release keys; disabling or F8 does release immediately.
+- [ ] With keyboard API missing or a custom km/h speedometer, status/diagnostics report limitations rather than claiming guaranteed 120 km/h.
+- [ ] Old ESP, Radar, Score, Quality, Auto Shoot and driver safety checks remain intact.

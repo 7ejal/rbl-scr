@@ -22,6 +22,7 @@ function Car.new(settings,inputClass)
         Goal=nil, LastIntent=0, LastStatus="Waiting for car",
         LastProgress=os.clock(), LastPos=nil, RecoveryUntil=0,
         Recoveries=0, Commands={}, UnreachableSignal=false,
+        Cruising=true, LastSpeedKmh=0, TargetSpeedKmh=120,
     },Car)
 end
 function Car:FindCar(seat,h)
@@ -56,6 +57,7 @@ function Car:Stop()
     self.Seat=nil;self.Vehicle=nil;self.Humanoid=nil
     self.Target=nil;self.Goal=nil;self.LastIntent=0
     self.Commands={};self.LastPos=nil
+    self.Cruising=true
     self.LastStatus="Vehicle stopped; controls released"
 end
 function Car:Drive(seat,model,h,target,goal)
@@ -67,40 +69,47 @@ function Car:Drive(seat,model,h,target,goal)
     if self.Seat~=seat then
         self:Stop();self.Seat=seat
         self.LastProgress=os.clock();self.Recoveries=0
+        self.Cruising=true
     end
     self.Vehicle=model;self.Humanoid=h
     self.Target=target;self.Goal=goal;self.LastIntent=os.clock()
     return true
 end
 function Car:ObstacleAhead(seat,model,speed)
-    local direction=flat(seat.CFrame.LookVector)
-    if direction.Magnitude<0.01 then return true end
-    local range=math.clamp(speed*1.4+12,18,54)
+    if not self.Settings.HuntCarObstacleBrake then return false end
+    local forward=flat(seat.CFrame.LookVector)
+    local right=flat(seat.CFrame.RightVector)
+    if forward.Magnitude<0.01 or right.Magnitude<0.01 then return false end
+
+    -- Exclude own car/character and Dhab target: chasing the target itself
+    -- must never be misdiagnosed as a wall.
     local params=RaycastParams.new()
     params.FilterType=Enum.RaycastFilterType.Exclude
+    params.RespectCanCollide=true
+    local ignore={model}
     local c=Players.LocalPlayer.Character
-    params.FilterDescendantsInstances=c and {model,c} or {model}
+    if c then table.insert(ignore,c) end
+    if self.Target then table.insert(ignore,self.Target) end
+    params.FilterDescendantsInstances=ignore
     params.IgnoreWater=true
+
+    local length=math.clamp(speed*0.65+15,22,85)
     local origin=seat.Position+Vector3.new(0,2.2,0)
-    -- Front, left, and right safety rays.
-    local vectors={
-        direction.Unit,
-        (direction.Unit+flat(seat.CFrame.RightVector)*0.36).Unit,
-        (direction.Unit-flat(seat.CFrame.RightVector)*0.36).Unit,
-    }
-    for _,unit in ipairs(vectors) do
-        local result=workspace:Raycast(origin,unit*range,params)
+    for _,factor in ipairs({0,0.23,-0.23}) do
+        local ray=(forward.Unit+right.Unit*factor).Unit
+        local result=workspace:Raycast(origin,ray*length,params)
         if result then
-            -- Terrain at ground height is expected. Ignore it only if
-            -- clearly below the vehicle body; never ignore walls/objects.
-            if not (result.Instance==workspace.Terrain
-                and result.Position.Y<seat.Position.Y-1.8) then
-                return true
-            end
+            local height=result.Position.Y-seat.Position.Y
+            local slope=result.Normal.Y
+            -- Driving over slopes and low ground is normal, not an
+            -- obstacle. Ignore low, upward-facing road/terrain hits.
+            local traversable=(slope>0.55 and height<2.5)
+            if not traversable then return true end
         end
     end
     return false
 end
+
 function Car:ManualInput()
     if UIS:GetFocusedTextBox() then return true end
     if not self.Settings.HuntPauseOnManualMove then return false end
@@ -121,7 +130,7 @@ function Car:Step()
     local s=self.Settings
     if not self.Running or not s.AutoHuntEnabled or not s.HuntCarEnabled
         or not self.Seat or not self.Goal or not self.Target
-        or os.clock()-self.LastIntent>0.9 then
+        or os.clock()-self.LastIntent>2.0 then
         if self.Seat then self:Stop() end
         return
     end
@@ -141,42 +150,74 @@ function Car:Step()
     local dist=delta.Magnitude
     local velocity=flat(seat.AssemblyLinearVelocity)
     local speed=velocity.Magnitude
-    local cap=math.clamp(s.HuntCarMaxSpeed or 32,8,90)
+    -- Roblox's nominal scale is 0.28 metres per stud, so a 120 km/h
+    -- target corresponds to approximately 119 studs/second.
+    local speedKmh=speed*0.28*3.6
+    local targetKmh=math.clamp(s.HuntCarTargetKmh or 120,30,180)
+    self.LastSpeedKmh=speedKmh
+    self.TargetSpeedKmh=targetKmh
     local stopDist=math.clamp(s.HuntCarStopDistance or 48,25,125)
-    local buffer=math.clamp(speed*1.35,8,65)
+    -- Leave room to decelerate as speed increases, instead of waiting
+    -- until the car is already inside the animal's collision area.
+    local buffer=math.clamp(speed*0.65+7,10,85)
     local keys={}
     local mode=s.HuntCarInputMode or "Keyboard"
     if mode~="Keyboard" and mode~="Seat" then mode="Keyboard" end
 
     if dist<=stopDist+buffer then
-        self.LastStatus="Braking near Dhab"
+        self.Cruising=false
+        self.LastStatus=("Near Dhab; coasting at %.0f km/h"):format(speedKmh)
     elseif dist>0.1 then
-        local f=flat(seat.CFrame.LookVector)
+        local forward=flat(seat.CFrame.LookVector)
         local right=flat(seat.CFrame.RightVector)
-        if f.Magnitude>0.1 and right.Magnitude>0.1 then
+        if forward.Magnitude>0.1 and right.Magnitude>0.1 then
             local dir=delta.Unit
-            local angle=math.atan2(dir:Dot(right.Unit),dir:Dot(f.Unit))
+            local angle=math.atan2(dir:Dot(right.Unit),dir:Dot(forward.Unit))
             if s.HuntCarInvertSteering then angle=-angle end
-            local turn=math.clamp(s.HuntCarTurnDeadzone or 0.13,0.05,0.5)
-            if angle>turn then keys.D=true
-            elseif angle < -turn then keys.A=true end
-            local desiredSpeed=cap*math.clamp(1-math.abs(angle)/math.pi,0.25,1)
-            if speed<desiredSpeed then keys.W=true end
+            local deadzone=math.clamp(s.HuntCarTurnDeadzone or 0.13,0.05,0.5)
+            if angle>deadzone then keys.D=true
+            elseif angle < -deadzone then keys.A=true end
+
+            -- A/D can remain held while W stays down; gradual reduction
+            -- for sharp turns instead of cutting acceleration to 25%.
+            local cornerFactor=math.clamp(
+                1-math.abs(angle)/math.pi*0.45,0.55,1)
+            local cruiseTarget=targetKmh*cornerFactor
+
+            -- 11 km/h hysteresis prevents rapid W press/release pulsing.
+            if self.Cruising then
+                if speedKmh>=cruiseTarget+3 then self.Cruising=false end
+            elseif speedKmh<=cruiseTarget-8 then
+                self.Cruising=true
+            end
+
             local blocked=self:ObstacleAhead(seat,self.Vehicle,speed)
             if blocked then
                 keys.W=nil
-                self.LastStatus="Obstacle ahead: slowing"
+                self.LastStatus=("Obstacle ahead | %.0f km/h"):format(speedKmh)
             else
-                self.LastStatus="Car hunting via "..mode
+                if self.Cruising then keys.W=true end
+                self.LastStatus=("%s | %.0f/%.0f km/h%s"):format(
+                    mode, speedKmh, targetKmh,
+                    keys.W and " | W held" or " | cruising")
             end
+        else
+            self.LastStatus="Waiting for vehicle heading"
         end
     end
-    if self.LastPos and (flat(seat.Position-self.LastPos)).Magnitude>=5 then
-        self.LastPos=seat.Position;self.LastProgress=os.clock()
+
+    -- Stuck recovery applies only while we are actively trying to
+    -- accelerate; an obstacle pause or coasting is not being stuck.
+    if self.LastPos and flat(seat.Position-self.LastPos).Magnitude>=5 then
+        self.LastPos=seat.Position
+        self.LastProgress=os.clock()
         self.Recoveries=0
     elseif not self.LastPos then
-        self.LastPos=seat.Position;self.LastProgress=os.clock()
-    elseif os.clock()-self.LastProgress>5 and dist>stopDist+buffer then
+        self.LastPos=seat.Position
+        self.LastProgress=os.clock()
+    elseif not keys.W then
+        self.LastProgress=os.clock()
+    elseif os.clock()-self.LastProgress>6 then
         self.LastProgress=os.clock()
         self.Recoveries=self.Recoveries+1
         if self.Recoveries>2 then
@@ -201,7 +242,9 @@ function Car:Step()
         local throttle=(keys.W and 1 or 0)-(keys.S and 1 or 0)
         pcall(function()seat.SteerFloat=steer;seat.ThrottleFloat=throttle end)
     else
-        self:Neutralize(seat)
+        -- IMPORTANT: do not force VehicleSeat.ThrottleFloat = 0 while W
+        -- is injected. The game's keyboard-based chassis may read the
+        -- seat's throttle and the previous neutralization cancelled W.
         local ok,err=self.Input:Set(keys)
         if not ok then
             self.LastStatus="WASD unavailable: "..tostring(err)

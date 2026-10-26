@@ -230,3 +230,17 @@ If your car uses a generic `Seat` rather than `VehicleSeat`, or is not under `Pl
 The Advanced and Diagnostics tabs are available in the scrollable sidebar. Features are optional, with Auto Hunt OFF by default and saved settings still opt-in. No network-ownership manipulation, game-specific remotes, server damage spoofing, teleporting or forced interaction was introduced.
 
 **IMPORTANT:** GitHub/static verification cannot establish whether your Xeno version actually exposes keypress/keyrelease/VirtualInputManager or whether the custom chassis receives injected input. Enter the car, enable Auto Hunt, open Diagnostics and check Key API / Key error. Press F8 immediately if the car behaves unexpectedly.
+
+
+## Vehicle Auto Hunt: sustained W and 120 km/h cruise (2026-10-26)
+
+The original Xeno car controller could tap W briefly then stop because **keyboard mode reset VehicleSeat.ThrottleFloat to zero every frame**, capped speed at only 32 studs/second, sometimes treated driveable slopes or the hunted Dhab as obstacles, and had a short stale-input timeout. These issues have been addressed in `src/VehicleHuntController.lua`:
+
+- **Keyboard W/A/S/D (default)** now holds W continuously while accelerating, without forcing `VehicleSeat.ThrottleFloat = 0` during the drive. A and D remain held through turns as needed. Separate `VehicleSeat` mode is still selectable.
+- **Vehicle speed target: 120 km/h** by default, adjustable between 30–180 km/h from the Auto Hunt tab. At Roblox's nominal scale (1 stud = 0.28 m), 120 km/h is approximately 119 studs/sec. The speed regulator reads the occupied seat assembly's velocity and uses an 11 km/h hysteresis gap to avoid rapid W tap/release at the target. A game's custom speedometer may use a different conversion, and the controller cannot make a physically limited car reach a higher speed.
+- **Brake for obstacles** is ON by default and can be turned off separately to diagnose unexpected brakes. The upgraded three-ray check ignores the hunted model, non-collidable objects, and upward-facing traversable ground. It still releases acceleration for genuinely blocking obstacles.
+- **Coast when nearing a Dhab**, taking actual current speed and stopping radius into account. Even at the 120 km/h target, Auto Hunt intentionally releases W when sufficiently close to a Dhab. This is not a continuous full-speed crash-into-target mode.
+- A **2-second drive intent timeout** tolerates short update stalls while still releasing input on disable, F8 emergency stop, seat exit, stale target, or script cleanup. The original user-configured separate hunter and shooting restrictions remain unchanged.
+- Older saved `HuntCarMaxSpeed` values are not loaded into the new `HuntCarTargetKmh` preference, to avoid restoring the previous too-low speed cap. The car target speed defaults to 120 km/h until the user explicitly saves a new km/h value.
+
+**To test:** Sit in your own driver seat → Auto Hunt → `Car input: Keyboard W/A/S/D` → `Vehicle speed target: 120 km/h` → enable Auto Hunt. Diagnostics / hunt status indicates `W held`, actual calculated km/h, obstruction, near-target coasting, or missing keyboard API. F8 is the emergency stop. Live Roblox/Xeno driving and the game's speedometer calibration remain **unverified**.

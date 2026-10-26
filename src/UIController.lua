@@ -211,7 +211,7 @@ function UIController.new(playerGui, settings, fov, janitorClass)
             pageProps.ScrollBarThickness = 4
             pageProps.ScrollingDirection = Enum.ScrollingDirection.Y
             pageProps.CanvasSize = UDim2.fromOffset(0,
-                name == "Auto Hunt" and 1550
+                name == "Auto Hunt" and 1680
                     or (name == "Advanced" and 1180 or 600))
         end
         local page = create(scrollable and "ScrollingFrame" or "Frame",
@@ -608,10 +608,10 @@ function UIController.new(playerGui, settings, fov, janitorClass)
         "HuntCarInvertSteering", 1127)
     huntNumberPanel(1184, "Vehicle stopping radius",
         "HuntCarStopDistance", 5, 25, 125, " studs")
-    huntNumberPanel(1269, "Vehicle speed cap",
-        "HuntCarMaxSpeed", 4, 8, 90, " studs/s")
+    huntNumberPanel(1269, "Vehicle speed target",
+        "HuntCarTargetKmh", 10, 30, 180, " km/h")
     local driveInfo = label(hunt,
-        "Sit in the driver's VehicleSeat of a PlayersCars vehicle, then turn on Auto Hunt. The car uses seat steering/throttle; custom chassis might not respond. WASD pauses.",
+        "Sit in your car's driver seat and enable Auto Hunt. Keyboard mode keeps W held below the target speed. Standard Roblox speed conversion is used; custom speedometers may differ. F8 stops driving.",
         8, 1360, 442, 94, 12)
     driveInfo.TextWrapped = true
     driveInfo.TextTruncate = Enum.TextTruncate.None
@@ -626,6 +626,9 @@ function UIController.new(playerGui, settings, fov, janitorClass)
             and "Seat" or "Keyboard"
         self:ChangeSetting("HuntCarInputMode", nextMode)
     end))
+
+    self:ToggleRow(hunt, "Brake for obstacles",
+        "HuntCarObstacleBrake", 1518)
 
     -- Radar page: nearby live Dhab, highlighted hunt target and distances.
     local radarPage = self.Pages.Radar

@@ -82,7 +82,8 @@ return {
     HuntShootDistance = 85, -- studs; also subject to AutoShootMaxDistance
     HuntCarEnabled = true, -- works only after manually entering driver seat
     HuntCarStopDistance = 48, -- studs, 25-125
-    HuntCarMaxSpeed = 32, -- studs/second (8-90); chassis may differ
+    HuntCarTargetKmh = 120, -- 30-180 km/h, nominal Roblox units (0.28 m/stud)
+    HuntCarObstacleBrake = true, -- ignore driveable ground while checking obstacles
     HuntCarInvertSteering = false,
     HuntCarInputMode = "Keyboard", -- actual WASD, Seat fallback
     HuntCarTurnDeadzone = 0.13,
