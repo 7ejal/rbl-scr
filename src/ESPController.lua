@@ -120,6 +120,13 @@ end
 
 function ESPController:Diagnostics()
     local vehicle = self.Hunt and self.Hunt.Vehicle
+    local luaMemory = "unavailable"
+    pcall(function()
+        local kb = collectgarbage("count")
+        if type(kb) == "number" then
+            luaMemory = string.format("%.1f MB", kb / 1024)
+        end
+    end)
     local report = {
         "=== IVORY DIAGNOSTICS ===",
         "Auto Hunt: " .. tostring(self.Settings.AutoHuntEnabled),
@@ -131,6 +138,9 @@ function ESPController:Diagnostics()
         "Auto Shoot: " .. tostring(self.AutoShoot and self.AutoShoot.Status or "not initialized"),
         "Radar: " .. tostring(self.Settings.RadarEnabled),
         "Performance mode: " .. tostring(self.Settings.PerformanceMode),
+        "FPS: " .. tostring(self.UI and self.UI.FPSLabel
+            and self.UI.FPSLabel.Text or "unavailable"),
+        "Lua memory: " .. luaMemory .. " (if executor allows it)",
         "Planner: " .. tostring(self.Planner and self.Planner:Describe() or "not initialized"),
         "F8 stops Hunt / Shoot / Aim and releases WASD",
     }
