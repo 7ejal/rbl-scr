@@ -290,15 +290,17 @@ function MonsterInspector:BuildList(strong, unknown, reason, catches, cars)
     if #strong == 0 then table.insert(lines, "  none detected") end
     for index = 1, math.min(#strong, MAX_LIST) do
         local item = strong[index]
-        local quality = self.QualityResolver
-            and self.QualityResolver.Read(item.Model)
         local tier = item.Model:GetAttribute("Tier")
-        local state = item.Model:GetAttribute("State")
-        table.insert(lines, string.format("%d. %s | %.0f studs | Tier %s | %s | %s | %s",
+        local length = item.Model:GetAttribute("Length")
+        local scale = item.Model:GetAttribute("Scale")
+        local lengthText = type(length) == "number"
+            and string.format("%.2f studs", length) or "Unknown"
+        local sizeText = type(scale) == "number"
+            and string.format("%.2fx", scale) or "Unknown"
+        table.insert(lines, string.format(
+            "%d. %s | %.0f studs away | Tier %s | Length %s | Size %s | %s",
             index, item.Model.Name, item.Distance,
-            tostring(tier or "Unknown"),
-            tostring(state or "Unknown"),
-            quality and quality.Text or "Quality: Unknown",
+            tostring(tier or "Unknown"), lengthText, sizeText,
             item.Model:GetFullName()))
     end
 

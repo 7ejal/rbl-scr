@@ -99,3 +99,12 @@
 - [ ] `O` scan lists the actual Tier and State per live Dhab without claiming they are its numerical Quality or Rare/Common rarity.
 - [ ] Tier values T1, T2, T3 are displayed accurately; other tiers are not assumed or filtered out.
 - [ ] Missing Tier/State values don't create fake values; real Quality still reads `Quality: Unknown` until a verified source exists.
+
+## Simplified Dhab stats acceptance
+
+- [ ] For Dhab with Tier=T2, Length=5.417562961578369 and Scale=2.1460721492767334, the label reads exactly `Tier T2 | Length 5.42 studs | Size 2.15x`.
+- [ ] No movement State or `Quality: Unknown` appears on the standard Dhab ESP by default.
+- [ ] Quality settings default OFF for live Dhab and HandCatch; optional diagnostics still work.
+- [ ] Press O to display Tier, Length and Size only for Dhab stats; no inferred rarity/quality.
+- [ ] Quality-tab stats toggle is labeled `Show Dhab Tier / Length / Size` and enables/disables the label correctly.
+- [ ] Existing auto-aim, auto-shoot and car filters remain unaffected.

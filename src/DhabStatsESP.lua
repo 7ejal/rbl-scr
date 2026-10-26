@@ -1,4 +1,4 @@
--- Displays replicated Dhab Tier, Length and State without inventing rarity.
+-- Displays replicated Dhab Tier, Length and Size (Scale) without inventing rarity.
 -- The game's Tier is not assumed to equal numerical Quality or Rarity.
 local DhabStatsESP = {}
 DhabStatsESP.__index = DhabStatsESP
@@ -11,8 +11,10 @@ end
 function DhabStatsESP.new(box, model)
     local statsLabel = Instance.new("TextLabel")
     statsLabel.Name = "DhabTierStats"
-    statsLabel.Position = UDim2.new(0, -65, 0, -67)
-    statsLabel.Size = UDim2.new(1, 130, 0, 22)
+    statsLabel.AnchorPoint = Vector2.new(0.5, 0)
+    statsLabel.Position = UDim2.new(0.5, 0, 0, -67)
+    statsLabel.Size = UDim2.fromOffset(340, 22)
+    statsLabel.TextXAlignment = Enum.TextXAlignment.Center
     statsLabel.BackgroundTransparency = 1
     statsLabel.Font = Enum.Font.GothamBold
     statsLabel.TextSize = 12
@@ -46,9 +48,11 @@ function DhabStatsESP:Update(enabled)
         table.insert(pieces, "Length " .. length .. " studs")
     end
 
-    local state = model:GetAttribute("State")
-    if type(state) == "string" and state ~= "" then
-        table.insert(pieces, state)
+    -- The replicated Scale attribute is the creature's size multiplier,
+    -- not a physical dimension. Length above is in studs.
+    local sizeMultiplier = formatNumber(model:GetAttribute("Scale"))
+    if sizeMultiplier then
+        table.insert(pieces, "Size " .. sizeMultiplier .. "x")
     end
 
     self.Label.Text = table.concat(pieces, " | ")

@@ -159,3 +159,13 @@ The **Auto Shoot** tab reports `Xeno does not expose mouse1click` when neither s
 The new read-only client report proves each examined `Workspace.DhabWild.Dhab_<id>` model exposes `Uid`, `Tier` (T1, T2, T3), `Length` (studs), `State` (walk/idle), `Scale`, `Speed`, and other rig attributes. **None of the inspected five models had a distinct Quality or Rarity attribute.** `Tier` is therefore displayed as **Tier**, not mislabeled as Rare/Common or as a quality percentage. The new `src/DhabStatsESP.lua` displays `Tier | Length | State` above each live Dhab in real time, with an independent toggle in the Quality tab. The `O` scan and Quality diagnostic include verified Tier values.
 
 A potential next source for rarity mapping is the replicated `ReplicatedStorage.Dhab.Config.Dhab` ModuleScript. If inspecting it through the game's own permitted developer environment, validate whether it defines tiers, rarity names and weights. Do not claim a mapping until proven. If quality is server-only, the official game code needs to replicate it.
+
+## Simplified live Dhab labels: Tier, Length, Size
+
+By request, the default Dhab ESP now displays **only verified Tier, Length and Size** values above each creature. It reads the replicated model attributes `Tier`, `Length` (studs) and `Scale` (shown as `Size ...x`, a **scale multiplier**, not a measured width/height). Example based on the supplied game scan:
+
+```text
+Tier T2 | Length 5.42 studs | Size 2.15x
+```
+
+Movement State and unverified Quality/Rarity no longer appear in the standard Dhab ESP label or nearby O-key summary. `DhabQualityEnabled` and `HandCatchQuality` default OFF to avoid clutter from `Quality: Unknown`. The optional quality diagnostic remains available for further investigation but is not required for ESP. Switch **Quality → Show Dhab Tier / Length / Size** to control the three-field label. Other existing ESP, Auto Aim, Auto Shoot, Cars and Anti Fog settings are unchanged.

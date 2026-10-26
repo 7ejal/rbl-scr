@@ -345,7 +345,7 @@ function UIController.new(playerGui, settings, fov, janitorClass)
     local quality = self.Pages.Quality
     self:ToggleRow(quality, "Show live Dhab quality", "DhabQualityEnabled", 0)
     self:ToggleRow(quality, "Show HandCatch quality", "HandCatchQuality", 50)
-    self:ToggleRow(quality, "Show real Dhab Tier / Length / State", "DhabStatsEnabled", 100)
+    self:ToggleRow(quality, "Show Dhab Tier / Length / Size", "DhabStatsEnabled", 100)
     local qualityScan = button(quality,
         "Inspect nearest Dhab quality", 0, 151, 260, 38, COLOR.Row)
     self.Janitor:Add(qualityScan.MouseButton1Click:Connect(function()

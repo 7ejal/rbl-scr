@@ -37,15 +37,15 @@ return {
     CarNames = true,
     CarDistance = true,
     CarHighlights = true,
-    DhabQualityEnabled = true,
-    DhabStatsEnabled = true,
+    DhabQualityEnabled = false, -- unknown quality hidden by default
+    DhabStatsEnabled = true, -- Tier, Length, Size
 
     HandCatchEnabled = true,
     HandCatchBoxes = true,
     HandCatchNames = true,
     HandCatchDistance = true,
     HandCatchHighlights = true,
-    HandCatchQuality = true,
+    HandCatchQuality = false, -- hide unknown quality by default
 
     -- Camera-only monster aim. Never automatically fires a weapon.
     AimEnabled = false,
