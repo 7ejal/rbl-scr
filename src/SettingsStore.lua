@@ -16,7 +16,9 @@ local KEYS = {
     "AutoShootInputMode", "AutoShootLineOfSight", "AutoShootRate",
     "AutoShootMaxDistance", "AutoHuntEnabled", "HuntAutoShoot",
     "HuntPauseOnManualMove", "HuntStopDistance", "HuntSearchDistance",
-    "HuntShootDistance", "HuntPriority", "HuntMinLength",
+    "HuntShootDistance", "HuntCarEnabled", "HuntCarStopDistance",
+    "HuntCarMaxSpeed", "HuntCarInvertSteering",
+    "HuntPriority", "HuntMinLength",
     "HuntTierT1", "HuntTierT2", "HuntTierT3", "HuntTierT4",
     "HuntTierT5", "HuntTierT6", "HuntTierUnknown", "RadarEnabled",
     "RadarRange", "StatsEnabled", "AntiFogEnabled", "MaxDistance",
@@ -93,6 +95,7 @@ function Store:Load()
         AutoShootRate = {1, 8}, AutoShootMaxDistance = {10, 500},
         HuntStopDistance = {10, 100}, HuntSearchDistance = {100, 2000},
         HuntShootDistance = {10, 500}, HuntMinLength = {0, 12},
+        HuntCarStopDistance = {25, 125}, HuntCarMaxSpeed = {8, 90},
         RadarRange = {100, 2000}, CameraFOV = {0, 120},
     }
     for key, limits in pairs(bounds) do

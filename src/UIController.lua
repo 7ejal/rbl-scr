@@ -210,7 +210,7 @@ function UIController.new(playerGui, settings, fov, janitorClass)
             pageProps.ScrollBarThickness = 4
             pageProps.ScrollingDirection = Enum.ScrollingDirection.Y
             pageProps.CanvasSize = UDim2.fromOffset(0,
-                name == "Auto Hunt" and 1130 or 560)
+                name == "Auto Hunt" and 1550 or 560)
         end
         local page = create(scrollable and "ScrollingFrame" or "Frame",
             mainArea, pageProps)
@@ -596,6 +596,24 @@ function UIController.new(playerGui, settings, fov, janitorClass)
     huntFoot.TextTruncate = Enum.TextTruncate.None
     huntFoot.TextYAlignment = Enum.TextYAlignment.Top
     huntFoot.TextColor3 = COLOR.Muted
+
+    -- Vehicle hunting requires an occupied local VehicleSeat in PlayersCars.
+    -- It never auto-enters vehicles or controls other drivers' cars.
+    self:ToggleRow(hunt, "Auto Hunt while driving (VehicleSeat)",
+        "HuntCarEnabled", 1080)
+    self:ToggleRow(hunt, "Reverse vehicle steering",
+        "HuntCarInvertSteering", 1127)
+    huntNumberPanel(1184, "Vehicle stopping radius",
+        "HuntCarStopDistance", 5, 25, 125, " studs")
+    huntNumberPanel(1269, "Vehicle speed cap",
+        "HuntCarMaxSpeed", 4, 8, 90, " studs/s")
+    local driveInfo = label(hunt,
+        "Sit in the driver's VehicleSeat of a PlayersCars vehicle, then turn on Auto Hunt. The car uses seat steering/throttle; custom chassis might not respond. WASD pauses.",
+        8, 1360, 442, 94, 12)
+    driveInfo.TextWrapped = true
+    driveInfo.TextTruncate = Enum.TextTruncate.None
+    driveInfo.TextYAlignment = Enum.TextYAlignment.Top
+    driveInfo.TextColor3 = COLOR.Muted
 
     -- Radar page: nearby live Dhab, highlighted hunt target and distances.
     local radarPage = self.Pages.Radar

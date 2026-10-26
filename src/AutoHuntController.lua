@@ -167,6 +167,7 @@ end
 
 function AutoHuntController:Reset()
     self:StopMovement()
+    if self.Vehicle then self.Vehicle:Stop() end
     self:ClearPath()
     self.Target = nil
     self.StuckAttempts = 0
@@ -253,6 +254,83 @@ function AutoHuntController:Update()
         return
     end
 
+
+    -- Vehicle mode: only drive the local player's occupied driver VehicleSeat
+    -- within Workspace.PlayersCars. Do NOT MoveTo a seated humanoid.
+    local character = Players.LocalPlayer.Character
+    local living = character and character:FindFirstChildOfClass("Humanoid")
+    if living and living.Health > 0 and living.SeatPart then
+        self:StopMovement()
+        local vehicle = self.Vehicle
+        if not vehicle or not self.Settings.HuntCarEnabled then
+            if vehicle then vehicle:Stop() end
+            self:SetStatus("Seated: enable Auto Hunt in Car or exit the seat")
+            return
+        end
+
+        local driving, seat, car = vehicle:IsDriving()
+        if not driving then
+            vehicle:Stop()
+            self:SetStatus("Car requires your occupied VehicleSeat in PlayersCars")
+            return
+        end
+        if self:ManualOverride() then
+            vehicle:Stop()
+            self:SetStatus("Vehicle paused: manual controls / typing")
+            return
+        end
+
+        local location, distance = self:ValidTarget(self.Target, seat.Position)
+        if not location then
+            self:Reset()
+            self.Target = self:ClosestDhab(seat.Position)
+            if self.Target and self.Stats then self.Stats:RecordTarget() end
+            location, distance = self:ValidTarget(self.Target, seat.Position)
+        end
+        if not location then
+            vehicle:Stop()
+            self:SetStatus("Car hunt: no eligible live Dhab")
+            return
+        end
+
+        self.Aim:SetHuntTarget(self.Target)
+        local stopDistance = math.clamp(
+            self.Settings.HuntCarStopDistance or 48, 25, 125)
+        if distance <= stopDistance then
+            vehicle:Stop()
+            self:SetStatus(("Car in range: %s (%d studs)")
+                :format(self.Target.Name, math.floor(distance + 0.5)))
+            return
+        end
+
+        local now = os.clock()
+        if not self.LastPosition or
+            (seat.Position - self.LastPosition).Magnitude >= 4 then
+            self.LastPosition = seat.Position
+            self.LastMovedAt = now
+            self.StuckAttempts = 0
+        elseif now - self.LastMovedAt >= 7 then
+            self.StuckAttempts = self.StuckAttempts + 1
+            self.LastMovedAt = now
+            if self.StuckAttempts >= 3 then
+                self:SkipUnreachable("Car stuck; skipping Dhab for 35s")
+                return
+            end
+        end
+
+        if not vehicle:Drive(seat, car, living, self.Target, location) then
+            vehicle:Stop()
+            self:SetStatus("Cannot control this car seat")
+            return
+        end
+        self:SetStatus(("Car hunting %s | %d studs | %s"):format(
+            self.Target.Name, math.floor(distance + 0.5),
+            vehicle.LastStatus
+        ))
+        return
+    end
+
+    if self.Vehicle and self.Vehicle.Seat then self.Vehicle:Stop() end
     local humanoid, root = self:Character()
     if not humanoid then
         self:Reset()
@@ -339,6 +417,7 @@ end
 function AutoHuntController:Start()
     if self.Running then return end
     self.Running = true
+    if self.Vehicle then self.Vehicle:Start() end
     table.insert(self.Connections, Players.LocalPlayer.CharacterAdded:Connect(
         function()
             self:Reset()
@@ -364,6 +443,7 @@ function AutoHuntController:Destroy()
     for _, connection in ipairs(self.Connections) do connection:Disconnect() end
     table.clear(self.Connections)
     self:Reset()
+    if self.Vehicle then self.Vehicle:Destroy() end
     self:SetStatus("Stopped")
 end
 

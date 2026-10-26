@@ -80,6 +80,10 @@ return {
     HuntTierT6 = true,
     HuntTierUnknown = false,
     HuntShootDistance = 85, -- studs; also subject to AutoShootMaxDistance
+    HuntCarEnabled = true, -- works only after manually entering driver seat
+    HuntCarStopDistance = 48, -- studs, 25-125
+    HuntCarMaxSpeed = 32, -- studs/second (8-90); chassis may differ
+    HuntCarInvertSteering = false,
 
     -- Radar and session stats.
     RadarEnabled = false,

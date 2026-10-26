@@ -309,6 +309,7 @@ function ESPController:Start()
         end
     )
     self.Hunt.UI = self.UI
+    self.Hunt.Vehicle = self.Classes.VehicleHuntController.new(self.Settings)
     self.Hunt.Stats = self.Stats
     self.Hunt:Start()
 

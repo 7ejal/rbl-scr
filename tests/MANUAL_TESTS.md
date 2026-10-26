@@ -152,3 +152,18 @@
 - [ ] Sidebar is independently scrollable; Radar, Statistics, and Settings tabs remain accessible.
 - [ ] Re-executing the loader does not leave duplicate GUI objects or listeners.
 
+
+
+## Auto Hunt in car (requires live Roblox/Xeno test)
+
+- [ ] On foot, the previous Humanoid:MoveTo Auto Hunt continues unchanged.
+- [ ] Sitting in local VehicleSeat within Workspace.PlayersCars switches hunt mode to the car, with no humanoid MoveTo.
+- [ ] Vehicle without local driver's Occupant, other player's car, vehicle outside PlayersCars or plain Seat is not controlled; in-game status explains the requirement.
+- [ ] Vehicle-seat steering turns toward the actual chosen live Dhab, and throttle moves toward it if the chassis uses VehicleSeat inputs. No moving unrelated cars.
+- [ ] Vehicle speed cap, stopping radius, and invert steering controls work with their GUI +/- or toggle buttons.
+- [ ] Approaching the target stops/coasts without ramming; obstacle ahead commands zero throttle.
+- [ ] Tier/size/length filters and automatic retargeting work from the occupied car.
+- [ ] Auto Aim and optional Auto Shoot still target live Dhab only; shooting compatibility depends on the game's weapon/vehicle logic.
+- [ ] Holding WASD/arrow keys (manual pause enabled) releases automatic driving and player may control car normally.
+- [ ] Exiting car returns to on-foot mode; Auto Hunt OFF, death, change of seat, stop/unload and re-execute neutralize vehicle controls and disconnect listener.
+- [ ] On custom chassis that ignores VehicleSeat float properties, status may show driving but vehicle movement may be unsupported: never claim all vehicles work.

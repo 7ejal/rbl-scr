@@ -200,3 +200,14 @@ All six enhancements are implemented in the feature branch:
 UI: Sidebar is scrollable for Radar and Statistics tabs, and the Auto Hunt/Auto Shoot pages scroll to show advanced controls. No automatic looting, server damage calls or game-specific remotes have been added.
 
 These are GitHub implementation changes; live Roblox/Xeno behavior is not tested. Custom weapon inputs and PathfindingService may behave differently in the actual game. If no confirmed owner-linked catch event is exposed to the client, the program does NOT fabricate successful catches.
+
+
+## Vehicle Auto Hunt — drive from your own car
+
+Auto Hunt now detects when **your character is already sitting as the driver** in a `VehicleSeat` inside one whole car model under `Workspace.PlayersCars`. It automatically switches from on-foot navigation to an independent `VehicleHuntController.lua`. It keeps the same verified live-Dhab targeting, priority, tier and length filters, aimed camera and optional shooting system.
+
+Enable **Auto Hunt → Auto Hunt while driving (VehicleSeat)** (enabled by default but has no effect unless the main Auto Hunt toggle is ON). Adjust **Vehicle stopping radius** (default 48 studs), **Vehicle speed cap** (default 32 studs/second), and **Reverse vehicle steering** if your chassis faces the opposite way. You must **enter the driver's seat yourself**. It does not auto-enter, teleport, equip a vehicle, change network ownership or drive another player's car.
+
+Vehicle steering follows the direction of the chosen Dhab and writes standard local `VehicleSeat.ThrottleFloat` / `SteerFloat` values while occupied; it slows/coasts approaching the stopping radius and stops throttle on a detected obstacle. Holding WASD/arrow keys pauses automated driving when the manual-movement guard is ON. Seat change, death, target loss, toggling hunting OFF and script cleanup release the controls. There is no guaranteed vehicle pathfinding, automatic road routing or custom chassis support. `VehicleSeat` is documented to forward inputs only to compatible motor joints; custom vehicles may have to be integrated with their own *documented* control system. No game-specific remotes, item collection or simulated server damage.
+
+If your car uses a generic `Seat` rather than `VehicleSeat`, or is not under `PlayersCars`, the status reports why vehicle hunting is unavailable. This has been statically inspected on GitHub but has **not been tested inside your actual car/Xeno client**.
