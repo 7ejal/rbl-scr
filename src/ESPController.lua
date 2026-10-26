@@ -103,6 +103,9 @@ function ESPController:SetSetting(key, value)
     end
 
     self.Settings[key] = value
+    if key == "AntiFogEnabled" and self.AntiFog then
+        self.AntiFog:SetEnabled(value)
+    end
     -- Auto Shoot depends on camera aim; activating shooting enables aim too.
     if key == "AutoShootEnabled" and value then
         self.Settings.AimEnabled = true
@@ -184,6 +187,7 @@ function ESPController:Start()
     if self.Running or self.Destroyed then return end
 
     self.FOV = self.Classes.FOVController.new(self.Settings)
+    self.AntiFog = self.Classes.AntiFogController.new()
     self.UI = self.Classes.UIController.new(
         self.LocalPlayer:WaitForChild("PlayerGui"),
         self.Settings,
@@ -191,6 +195,7 @@ function ESPController:Start()
         self.Classes.Janitor
     )
 
+    self.AntiFog:SetEnabled(self.Settings.AntiFogEnabled)
     self.UI.OnToggle = function() self:Toggle() end
     self.UI.OnSettingChanged = function(key, value)
         self:SetSetting(key, value)
@@ -339,6 +344,7 @@ function ESPController:Destroy()
     for model in pairs(self.Monsters) do table.insert(monsters, model) end
     for _, model in ipairs(monsters) do self:RemoveMonster(model) end
 
+    if self.AntiFog then self.AntiFog:Destroy() end
     if self.UI then self.UI:Destroy() end
     if self.FOV then self.FOV:Destroy() end
 end

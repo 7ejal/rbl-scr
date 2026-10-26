@@ -59,6 +59,9 @@ return {
     AutoShootLineOfSight = true,
     AutoShootRate = 3, -- activation attempts per second (1-8)
 
+    -- Local-only atmospheric visibility. OFF by default.
+    AntiFogEnabled = false,
+
     MinFOV = 40,
     MaxFOV = 120,
 }

@@ -65,3 +65,14 @@
 - [ ] Exact-ID matching of ReplicatedStorage/PlayerGui data is used only when linked to the same Dhab; no quality leaks between 24 Dhab.
 - [ ] The \`O\` scan shows Dhab quality and a separate whole-car section.
 - [ ] If no quality is client-replicated, **Quality: Unknown** appears (no fabricated percentage).
+
+## Anti Fog manual checks
+
+- [ ] Anti Fog toggle appears in English under Settings and starts OFF.
+- [ ] With Lighting fog active, enabling Anti Fog increases fog distances to 1,000,000 / 10,000,000 studs.
+- [ ] With a Lighting.Atmosphere object, enabling Anti Fog sets Density, Haze and Glare to 0 without removing Atmosphere.
+- [ ] Changing the game's fog while enabled is corrected within approximately 0.75 seconds.
+- [ ] Newly added Atmosphere instances are cleared and their original values remembered.
+- [ ] Turning the feature OFF restores the values captured when enabled and disconnects listeners.
+- [ ] Re-executing loader and stopping IVORY restores local Lighting defaults and creates no duplicate fog loops.
+- [ ] The main ESP, camera FOV, Cars, Dhab, HandCatch, quality inspector and auto-aim toggles still operate independently.

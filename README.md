@@ -137,3 +137,9 @@ The in-game scan revealed \`Workspace.PlayersCars.DH_8638378195_SHAS_2025__2\` w
 Added: \`src/CarESP.lua\` (one ESP per whole car). Existing class-based features and HandCatch isolation remain intact.
 
 **Best guaranteed quality integration for your own game:** See [Server-side Dhab Quality Integration](docs/QUALITY_SERVER_INTEGRATION.md) for instructions to expose each animal's authoritative Quality attribute to the client, including thrown HandCatch copies. The inspector cannot recover server-only quality that was never replicated.
+
+## Anti Fog (Settings)
+
+Open **Settings → Anti Fog (clear haze)**. This independent OFF-by-default control uses `src/AntiFogController.lua` to locally set `Lighting.FogStart`/`FogEnd` far away and clear the `Atmosphere.Density`, `Haze` and `Glare` properties. The change is client-side, does not remove any objects, and periodically reapplies while enabled if the game adjusts the weather. Existing and newly added Atmosphere instances are supported. Turning the toggle OFF or running `getgenv().IvoryESP_Stop()` restores the recorded fog and atmosphere values from when Anti Fog was enabled.
+
+This does **not** remove opaque particle effects, smoke parts, blur effects, or custom shader-based fog. If the game applies different weather settings while Anti Fog is running, the restored values are the settings captured when toggled ON; subsequent game weather scripts may change them again. Reference: [Roblox Atmosphere documentation](https://create.roblox.com/docs/environment/atmosphere) and [Lighting class](https://create.roblox.com/docs/reference/engine/classes/Lighting).
