@@ -182,6 +182,7 @@ function Learner:Calibrate()
             end
         end
         if self.Generation~=generation then return end
+        self.Report=table.concat(summary,"\n")
         self.Running=false
         if winner then
             self.Settings.HuntCarProfiles=self.Settings.HuntCarProfiles or {}
@@ -191,7 +192,6 @@ function Learner:Calibrate()
         else
             self:Tell("Neither input method moved this car; check gear/chassis")
         end
-        self.Report=table.concat(summary,"\n")
     end)
 end
 function Learner:Destroy()
