@@ -1,6 +1,5 @@
--- IVORY ESP remote entry point.
--- Each feature is a class-style table in a separate source file.
--- Requires an executor that exposes game:HttpGet and loadstring.
+-- IVORY ESP modular loader. Requires game:HttpGet and loadstring.
+-- Review the repository before executing remote code.
 
 local env = _G
 pcall(function()
@@ -12,7 +11,6 @@ end)
 
 assert(type(loadstring) == "function", "IVORY ESP requires loadstring support")
 
--- Use IvoryESP_Ref = "feature/modular-ivory-esp" to test the PR branch.
 local ref = env.IvoryESP_Ref or "main"
 assert(type(ref) == "string" and ref:match("^[%w%._/%-]+$"),
     "Invalid IvoryESP_Ref")
@@ -23,7 +21,9 @@ local function load(path)
     local success, body = pcall(function()
         return game:HttpGet(url .. "?v=" .. tostring(os.time()))
     end)
-    if not success then error("IVORY ESP: unable to load " .. path .. ": " .. tostring(body)) end
+    if not success then
+        error("IVORY ESP: could not load " .. path .. ": " .. tostring(body))
+    end
     local chunk, err = loadstring(body)
     if not chunk then error("IVORY ESP: invalid module " .. path .. ": " .. tostring(err)) end
     return chunk()
@@ -41,6 +41,9 @@ local names = {
     "HighlightESP",
     "PlayerESP",
     "PlayerTracker",
+    "MonsterESP",
+    "MonsterTracker",
+    "MonsterInspector",
     "FOVController",
     "UIController",
     "KeybindController",
@@ -50,7 +53,7 @@ for _, name in ipairs(names) do
     classes[name] = load("src/" .. name .. ".lua")
 end
 
--- Replace the old instance only after every module loaded successfully.
+-- Fetch every module successfully before replacing a running instance.
 if type(env.IvoryESP_Stop) == "function" then
     pcall(env.IvoryESP_Stop)
 end
@@ -68,5 +71,5 @@ local function stop()
 end
 
 env.IvoryESP_Stop = stop
-print("[IVORY ESP] Loaded from " .. ref .. " | I = toggle | FOV slider ready")
+print("[IVORY ESP] Dashboard ready | I: overlay toggle | P: inspect monster")
 return controller

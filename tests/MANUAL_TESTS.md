@@ -1,21 +1,20 @@
-# Manual test checklist
+# Manual validation (not yet run in Roblox/Xeno)
 
-This project requires a live Roblox client/executor. These are scenarios for testing, not claims that they have already passed.
-
-- [ ] Execute branch loader; ESP button and FOV slider appear once.
-- [ ] Join with two or more players; remote players have projected outline, display name, distance, and health bar.
-- [ ] Highlight remains visible through a wall; boxes disappear when a target leaves the screen.
-- [ ] Press I when not typing; ESP switches off immediately. Press I again; it switches back on.
-- [ ] Click the ESP button to toggle independently of the keybind.
-- [ ] Drag FOV slider by mouse from 40 to 120 and observe camera changes, including while ESP is off.
-- [ ] Respawn a remote player and local player; ESP keeps working.
-- [ ] Join and leave players; there are no stale boxes or highlights.
-- [ ] Re-execute loader multiple times; only one GUI and one render connection should remain.
-- [ ] Call getgenv().IvoryESP_Stop() to clean up and restore original FOV.
-- [ ] Switch teams; allied players are green, enemies red.
-- [ ] Verify acceptable performance with 20+ players. Rendering is capped at 30 updates/second.
-- [ ] Check executor compatibility; no Drawing library or external dependencies are required.
-
-## Caveats
-
-Roblox's Highlight rendering has a finite capacity, so large servers can exceed its limit. Projected boxes are hidden when a bounding-box corner passes behind the camera. Standard client replication rules apply: the script cannot visualize characters the client does not have.
+- [ ] Load the PR branch. A 680 x 500 rounded dark dashboard appears, with English text only and no emoji icons.
+- [ ] Verify Home, ESP, Monsters, Settings sidebar navigation works.
+- [ ] Header FPS and ping labels update after a second.
+- [ ] Toggle individual player boxes, names, health, and wall highlights; verify behavior.
+- [ ] Move to Monsters. NPCs with Humanoids are detected; check names, boxes, health, distance and highlights.
+- [ ] Toggle Monster ESP and each monster subfeature independently.
+- [ ] Press I to hide both player and monster overlays; press I again to restore.
+- [ ] Press P while hovering a monster's body part; F9 console prints full model hierarchy, tags and attributes. Where available, clipboard contains report.
+- [ ] Confirm no player character is wrongly included as a monster after join/respawn.
+- [ ] Confirm models without Humanoids but tagged/named as a monster can be highlighted and have names.
+- [ ] Detection distance +/- buttons change effective range by 100 studs, clamped 100–5000.
+- [ ] Settings FOV slider changes camera FOV between 40 and 120 and works when overlays are off.
+- [ ] Try with low-resolution window; UI fits screen.
+- [ ] Drag the dashboard header; it moves.
+- [ ] Re-execute the loader; old GUI/events/highlights are removed, and only one dashboard remains.
+- [ ] Call getgenv().IvoryESP_Stop() and verify full cleanup/FOV restoration.
+- [ ] Test in games where monsters are streamed in and out.
+- [ ] Measure FPS on servers with 20+ players and many NPCs.

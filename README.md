@@ -1,64 +1,74 @@
 # IVORY ESP (Roblox Luau)
 
-Modular, client-side player ESP for the owner of this repository. Each feature is implemented in its own class-style Luau module; the main entry point loads the modules on demand.
+Class-based, modular client-side ESP with a dark dashboard inspired by the provided D3F screenshot. **All UI labels are in English, without emojis.**
 
-**Status:** Initial implementation awaiting testing inside Roblox/Xeno. This repository is **public**. Never commit executor credentials, Roblox cookies, or other secrets.
+**Status:** Implementation is committed on PR #1, but Roblox/Xeno runtime testing remains necessary. The repository is **public**: don't commit secrets.
 
 ## Features
 
-- Red player outlines/boxes, green for teammates
-- Built-in Roblox Highlight visible through walls
-- Player display names, distance in studs, and health bars
-- Press **I** or click the ESP button to toggle the visual overlay
-- Mouse/touch camera FOV slider (**40–120**) stays usable with ESP off
-- Automatic player join/leave/respawn handling
-- 30 Hz box refresh (configurable), one shared frame loop
-- Clean re-execution: old UI, event listeners, and highlights are removed
+- Dashboard with Home, ESP, Monsters and Settings tabs, plus FPS/ping readouts.
+- All ESP toggles are functional and stored in config.lua.
+- Player boxes, names, health bars, distance labels and through-wall highlights.
+- Automatic NPC/monster discovery and separate monster boxes, names, health, distance and highlights.
+- Detection distance defaults to 500 studs and changes in 100-stud steps.
+- Camera FOV slider (40 to 120 degrees) under Settings.
+- **I** toggles all overlays while keeping the dashboard and FOV available.
+- **P** inspects the model under the cursor: name, hierarchy, tags, Humanoid health and attributes. Outputs to F9 console and copies to clipboard if available.
+- One 30 Hz render coordinator, cleanup on re-execution.
 
-## Loader (after merging this PR into main)
+## Test the open PR branch
 
-Paste in a trusted Luau executor that supports both loadstring and game:HttpGet:
-
-    loadstring(game:HttpGet("https://raw.githubusercontent.com/7ejal/rbl-scr/main/main.lua"))()
-
-## Test the PR branch before merging
+In a trusted executor supporting game:HttpGet and loadstring:
 
     getgenv().IvoryESP_Ref = "feature/modular-ivory-esp"
     loadstring(game:HttpGet("https://raw.githubusercontent.com/7ejal/rbl-scr/feature/modular-ivory-esp/main.lua"))()
 
-After merging, remove IvoryESP_Ref or set it to "main". Running remotely fetched code trusts the repository contents; review changes before execution. Compatibility with any specific Xeno release has not been verified.
+After review and merge, use:
 
-To turn everything off and restore the starting FOV:
+    getgenv().IvoryESP_Ref = "main"
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/7ejal/rbl-scr/main/main.lua"))()
 
-    getgenv().IvoryESP_Stop()
+Calling getgenv().IvoryESP_Stop() removes overlays, UI and listeners, and restores the starting FOV. A new load replaces the previous instance. Running fetched scripts trusts the repository code; review modifications before loading.
+
+## Monster identification
+
+MonsterTracker automatically includes replicated Workspace Models with a directly attached Humanoid or recognized monster-related names, tags, attributes or folder names. It excludes known player characters. It scans on startup, reacts to new models, and rescans every 10 seconds. This is a generic heuristic **not a guarantee for every game**. Custom creatures without Humanoids or recognizable markers may require explicit model names.
+
+**Monster IDs are not guaranteed numeric.** Point at an in-game monster and press **P**. Share the inspector result to add precise per-game monster targeting, e.g., tiers T5/T6. Press F9 for console output.
+
+The inspector cannot see server-only instances or unreplicated/streamed-out models.
 
 ## Architecture
 
 | File | Responsibility |
 | --- | --- |
-| main.lua | Fetch all modules, start and replace a running instance |
-| config.lua | Central settings and keybind |
-| src/ESPController.lua | App lifecycle and 30 Hz render coordinator |
-| src/PlayerTracker.lua | Join/leave subscriptions |
-| src/PlayerESP.lua | One player's module composition |
-| src/Projection.lua | 3D-to-2D bounding box projection |
-| src/BoxESP.lua | 2D outline |
-| src/NameESP.lua | Display name |
-| src/DistanceESP.lua | Distance label |
+| main.lua | Remote loader, lifecycle replacement |
+| config.lua | All shared settings |
+| src/ESPController.lua | App lifecycle, unified render coordinator |
+| src/PlayerTracker.lua | Player join/leave |
+| src/PlayerESP.lua | Composes player visuals |
+| src/MonsterTracker.lua | Monster discovery, removal and rescan |
+| src/MonsterESP.lua | Composes monster visuals |
+| src/MonsterInspector.lua | Inspect hovered monster (P) |
+| src/Projection.lua | Bounding-box projection |
+| src/BoxESP.lua | Screen box |
+| src/NameESP.lua | Label |
+| src/DistanceESP.lua | Stud distance label |
 | src/HealthESP.lua | Health bar |
-| src/HighlightESP.lua | Wall-visible highlight |
-| src/FOVController.lua | Camera FieldOfView |
-| src/UIController.lua | Toggle and FOV slider UI |
-| src/KeybindController.lua | I shortcut |
-| src/Janitor.lua | Connection/instance cleanup |
+| src/HighlightESP.lua | Through-wall Highlight |
+| src/FOVController.lua | Camera FOV |
+| src/UIController.lua | Dark dashboard with working controls |
+| src/KeybindController.lua | I keyboard shortcut |
+| src/Janitor.lua | Listener/instance cleanup |
 
-To change one feature, edit its class module. main.lua does not need to be recopied for module edits.
+Each behavior has its own class-like module. Edit a module without re-copying the loader.
 
-## Technical notes
+## Known limits
 
-- Standard Roblox Instances are used instead of the executor-specific Drawing API.
-- Camera FieldOfView is held at the chosen value while running. Disabling ESP does not reset FOV; calling IvoryESP_Stop does.
-- No server-side abilities are added. Streaming and client replication limit which characters are visible.
-- GetBoundingBox is sampled per player at up to 30 Hz. If you target large servers, lower RenderFPS or MaxDistance in config.lua.
-- Highlight instances have a Roblox engine rendering limit.
-- Real-world validation: see tests/MANUAL_TESTS.md.
+- Standard Roblox UI Instances, no Drawing library required.
+- Roblox limits active Highlight renderers in large servers.
+- Projected 2D rectangles are conservatively hidden when a bounding-box corner is behind the camera.
+- Monsters without health data won't show health bars.
+- In some games, NPCs may be friendly rather than hostile; generic matching cannot tell them apart.
+- Client streaming/replication determines what the script can inspect.
+- The script is untested in a live Xeno/Roblox runtime; follow tests/MANUAL_TESTS.md.
