@@ -122,7 +122,7 @@ local ok, response = pcall(function()
         local lastError
         for attempt = 1, 3 do
             local success, body = pcall(function()
-                return game:HttpGet(url)
+                return game:HttpGet(url .. "?ivory_cache=" .. tostring(os.time()))
             end)
             if success and type(body) == "string" and #body > 0 then
                 local chunk, compileError = loadstring(body)
