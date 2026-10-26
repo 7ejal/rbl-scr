@@ -1,6 +1,6 @@
--- Auto Shoot (client Tool activation only).
+-- Auto Shoot: real left-mouse input when available, or Roblox Tool activation.
 -- Strictly uses AimController's live DhabWild target, never HandCatch / players.
--- No RemoteEvent calls, no simulated damage, and no tool swapping.
+-- No RemoteEvent calls, simulated damage or tool swapping.
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UIS = game:GetService("UserInputService")
@@ -20,6 +20,8 @@ function AutoShootController.new(settings, aimController, monsterTracker, onStat
         Elapsed = 0,
         LastShot = -math.huge,
         LastTool = nil,
+        MouseRelease = nil,
+        UI = nil,
     }, AutoShootController)
 end
 
@@ -29,6 +31,79 @@ function AutoShootController:SetStatus(value)
     if self.OnStatus then
         pcall(self.OnStatus, value)
     end
+end
+
+-- Executors expose input functions either as globals or inside getgenv().
+-- Never assume Xeno implements a particular function; check dynamically.
+local function inputFunction(name)
+    local direct = nil
+    if name == "mouse1click" then direct = mouse1click
+    elseif name == "mouse1press" then direct = mouse1press
+    elseif name == "mouse1release" then direct = mouse1release
+    end
+    if type(direct) == "function" then return direct end
+
+    if type(getgenv) == "function" then
+        local ok, value = pcall(getgenv)
+        if ok and type(value) == "table" and type(value[name]) == "function" then
+            return value[name]
+        end
+    end
+    if type(_G) == "table" and type(_G[name]) == "function" then
+        return _G[name]
+    end
+    return nil
+end
+
+function AutoShootController:ReleaseMouse()
+    if self.MouseRelease then
+        local release = self.MouseRelease
+        self.MouseRelease = nil
+        pcall(release)
+    end
+end
+
+function AutoShootController:FireMouse()
+    local click = inputFunction("mouse1click")
+    if click then
+        local ok, err = pcall(click)
+        if ok then return true end
+        return false, "Left click failed: " .. tostring(err):sub(1, 90)
+    end
+
+    local press = inputFunction("mouse1press")
+    local release = inputFunction("mouse1release")
+    if press and release then
+        self:ReleaseMouse()
+        local ok, err = pcall(press)
+        if not ok then
+            return false, "Left press failed: " .. tostring(err):sub(1, 90)
+        end
+
+        self.MouseRelease = release
+        task.delay(0.06, function()
+            self:ReleaseMouse()
+        end)
+        return true
+    end
+    return false, "Xeno does not expose mouse1click (or mouse1press/release)"
+end
+
+function AutoShootController:FireTool(tool)
+    if not tool then return false, "Equip a Roblox Tool to fire" end
+    local ok, err = pcall(function() tool:Activate() end)
+    if not ok then
+        return false, "Tool activation failed: " .. tostring(err):sub(1, 90)
+    end
+
+    self.LastTool = tool
+    task.delay(0.075, function()
+        if tool.Parent == Players.LocalPlayer.Character and tool.Enabled then
+            pcall(function() tool:Deactivate() end)
+        end
+        if self.LastTool == tool then self.LastTool = nil end
+    end)
+    return true
 end
 
 function AutoShootController:GetEquippedTool()
@@ -64,21 +139,39 @@ end
 function AutoShootController:Update()
     local settings = self.Settings
     if not settings.AutoShootEnabled then
+        self:ReleaseMouse()
         self:SetStatus("OFF")
         return
     end
     if not settings.AimEnabled then
+        self:ReleaseMouse()
         self:SetStatus("Enable Auto Aim first")
         return
     end
     if settings.AimHoldRightMouse and not UIS:IsMouseButtonPressed(
         Enum.UserInputType.MouseButton2) then
+        self:ReleaseMouse()
         self:SetStatus("Hold right mouse to aim and shoot")
         return
     end
     if UIS:GetFocusedTextBox() then
+        self:ReleaseMouse()
         self:SetStatus("Paused while typing")
         return
+    end
+    -- Real simulated clicks interact with visible GUI buttons. Do not send a
+    -- click if the cursor is over our own dashboard.
+    if (settings.AutoShootInputMode or "Mouse") == "Mouse" and self.UI
+        and self.UI.Window and self.UI.Window.Visible then
+        local panel = self.UI.Window
+        local cursor = UIS:GetMouseLocation()
+        local position = panel.AbsolutePosition
+        local size = panel.AbsoluteSize
+        if cursor.X >= position.X and cursor.X <= position.X + size.X
+            and cursor.Y >= position.Y and cursor.Y <= position.Y + size.Y then
+            self:SetStatus("Move cursor off menu or press Right Ctrl")
+            return
+        end
     end
 
     local camera = workspace.CurrentCamera
@@ -109,47 +202,44 @@ function AutoShootController:Update()
         return
     end
 
+    local inputMode = settings.AutoShootInputMode or "Mouse"
     local tool = self:GetEquippedTool()
-    if not tool then
-        self:SetStatus("Equip a Roblox Tool to shoot")
+    if inputMode == "Tool" and not tool then
+        self:SetStatus("Equip a Tool to use Tool mode")
         return
     end
 
     local now = os.clock()
     local shotsPerSecond = math.clamp(settings.AutoShootRate or 3, 1, 8)
     if now - self.LastShot < 1 / shotsPerSecond then
-        self:SetStatus("Auto shooting: " .. tool.Name)
+        self:SetStatus(inputMode == "Mouse" and
+            "Auto shooting: left click" or "Auto shooting: Tool")
         return
     end
 
-    -- Validate the selected target one final time before tool activation.
+    -- Revalidate the exact live DhabWild target, never HandCatch/car/player.
     if not target:IsDescendantOf(workspace)
-        or not self.Tracker:IsDhab(target) or not tool.Enabled then
-        self:SetStatus("Target or Tool unavailable")
+        or not self.Tracker:IsDhab(target) then
+        self:SetStatus("Dhab target unavailable")
         return
     end
 
     self.LastShot = now
-    local success, err = pcall(function()
-        tool:Activate()
-    end)
-    if not success then
-        self:SetStatus("Tool activation failed: " ..
-            tostring(err):sub(1, 65))
-        return
+    local success, err
+    if inputMode == "Mouse" then
+        success, err = self:FireMouse()
+    elseif inputMode == "Tool" then
+        success, err = self:FireTool(tool)
+    else
+        success, err = false, "Unknown input mode " .. tostring(inputMode)
     end
 
-    self.LastTool = tool
-    self:SetStatus("Auto shooting: " .. tool.Name)
-
-    -- Release the activation so semi-automatic Tools can react again.
-    task.delay(0.075, function()
-        local character = Players.LocalPlayer.Character
-        if tool.Parent == character and tool.Enabled then
-            pcall(function() tool:Deactivate() end)
-        end
-        if self.LastTool == tool then self.LastTool = nil end
-    end)
+    if not success then
+        self:SetStatus(err or "Input method unavailable")
+        return
+    end
+    self:SetStatus(inputMode == "Mouse" and
+        "Auto shooting: left click" or ("Auto shooting: Tool " .. tool.Name))
 end
 
 function AutoShootController:Start()
@@ -179,6 +269,7 @@ function AutoShootController:Destroy()
         pcall(function() self.LastTool:Deactivate() end)
     end
     self.LastTool = nil
+    self:ReleaseMouse()
     self:SetStatus("Stopped")
 end
 

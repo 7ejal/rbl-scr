@@ -76,3 +76,18 @@
 - [ ] Turning the feature OFF restores the values captured when enabled and disconnects listeners.
 - [ ] Re-executing loader and stopping IVORY restores local Lighting defaults and creates no duplicate fog loops.
 - [ ] The main ESP, camera FOV, Cars, Dhab, HandCatch, quality inspector and auto-aim toggles still operate independently.
+
+## Mouse-left-click Auto Shoot validation
+
+- [ ] Auto Shoot defaults OFF and its input mode defaults to **Left Click**.
+- [ ] Input button swaps **Left Click** / **Tool**, updating label immediately without multiple extra GUI instances.
+- [ ] With a live Dhab centered, Left Click mode invokes `mouse1click()` (if available) at the bounded firing rate.
+- [ ] If `mouse1click` is missing but `mouse1press` and `mouse1release` are available, press/release are balanced and released within ~0.06s.
+- [ ] With no executor input APIs, status says mouse1click isn't exposed and never silently claims firing.
+- [ ] Tool mode continues to use a correctly equipped `Tool:Activate()` and release.
+- [ ] Left Click mode works even if custom weapon isn't an Instance Tool (as long as game listens to mouse clicks).
+- [ ] Auto Shoot does nothing if no live Dhab, line of sight is blocked, auto aim disabled, or typing into text input.
+- [ ] Clicking on the ESP GUI itself isn't automated: with mouse pointer inside the visible dashboard, Auto Shoot pauses.
+- [ ] HandCatch, cars and players cannot become Auto Shoot targets; 1–8 shots/sec cap still respected.
+- [ ] Disabling/reloading script releases any held mouse input, preventing stuck mouse-button states.
+- [ ] Anti Fog, Cars, Quality and other features retain their existing settings.

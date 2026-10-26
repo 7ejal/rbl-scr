@@ -143,3 +143,13 @@ Added: \`src/CarESP.lua\` (one ESP per whole car). Existing class-based features
 Open **Settings → Anti Fog (clear haze)**. This independent OFF-by-default control uses `src/AntiFogController.lua` to locally set `Lighting.FogStart`/`FogEnd` far away and clear the `Atmosphere.Density`, `Haze` and `Glare` properties. The change is client-side, does not remove any objects, and periodically reapplies while enabled if the game adjusts the weather. Existing and newly added Atmosphere instances are supported. Turning the toggle OFF or running `getgenv().IvoryESP_Stop()` restores the recorded fog and atmosphere values from when Anti Fog was enabled.
 
 This does **not** remove opaque particle effects, smoke parts, blur effects, or custom shader-based fog. If the game applies different weather settings while Anti Fog is running, the restored values are the settings captured when toggled ON; subsequent game weather scripts may change them again. Reference: [Roblox Atmosphere documentation](https://create.roblox.com/docs/environment/atmosphere) and [Lighting class](https://create.roblox.com/docs/reference/engine/classes/Lighting).
+
+## Auto Shoot input fix: real left-click
+
+The game weapon requires a **left mouse click**. The former `Tool:Activate()` mode could report attempted activation even when the custom weapon ignored it.
+
+**Auto Shoot → Fire input** now defaults to **Left Click** and sends a supported executor `mouse1click()` action when a live DhabWild target is selected and centered. If `mouse1click()` isn't exposed, the script tries a timed `mouse1press()`/`mouse1release()` pair. You can switch to **Tool** mode for standard Roblox Tools; Tool mode still requires an equipped Tool. In Left Click mode, custom weapons do not have to be represented as an equipped Roblox Tool.
+
+Left Click is subject to executor support and may activate GUI buttons or click the current cursor position. Hide the dashboard with **Right Ctrl** or move the pointer off it when firing. Aim, distance, center, line-of-sight, optional right-mouse requirement and rate limits still apply. Mouse clicks only occur on the current Roblox client; this does **not** guarantee that the specific weapon will fire or hit, because game-specific input and server validation can differ.
+
+The **Auto Shoot** tab reports `Xeno does not expose mouse1click` when neither supported input API is accessible. If the status says **Auto shooting: left click** but no bullets fire, determine whether the equipped weapon uses actual mouse input or requires a particular cursor position, ammo, or its own weapon handler.

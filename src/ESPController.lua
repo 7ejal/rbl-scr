@@ -268,6 +268,7 @@ function ESPController:Start()
             if self.UI then self.UI:SetAutoShootStatus(status) end
         end
     )
+    self.AutoShoot.UI = self.UI
     self.AutoShoot:Start()
 
     self.Running = true

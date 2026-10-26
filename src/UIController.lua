@@ -426,9 +426,15 @@ function UIController.new(playerGui, settings, fov, janitorClass)
     self:ToggleRow(shooter, "Require clear line of sight", "AutoShootLineOfSight", 50)
     self:ToggleRow(shooter, "Require right mouse button", "AimHoldRightMouse", 100)
 
+    self.ShootModeButton = button(shooter,
+        "Fire input: Left Click", 0, 156, 222, 39, COLOR.Row)
+    self.Janitor:Add(self.ShootModeButton.MouseButton1Click:Connect(function()
+        local mode = self.Settings.AutoShootInputMode == "Mouse" and "Tool" or "Mouse"
+        self:ChangeSetting("AutoShootInputMode", mode)
+    end))
     local shootInfo = label(shooter,
-        "Auto Shoot enables Auto Aim. Firing only starts when a live Dhab is centered.",
-        10, 149, 440, 50, 12)
+        "Left Click uses mouse1click. Tool uses Tool:Activate.",
+        234, 154, 226, 48, 12)
     shootInfo.TextWrapped = true
     shootInfo.TextTruncate = Enum.TextTruncate.None
     shootInfo.TextYAlignment = Enum.TextYAlignment.Top
@@ -688,6 +694,10 @@ function UIController:Refresh()
     end
     self.RangeLabel.Text = "ESP detection distance: "
         .. tostring(self.Settings.MaxDistance) .. " studs"
+    if self.ShootModeButton then
+        self.ShootModeButton.Text = self.Settings.AutoShootInputMode == "Tool"
+            and "Fire input: Tool" or "Fire input: Left Click"
+    end
     if self.ShootRateLabel then
         self.ShootRateLabel.Text = "Firing rate: " ..
             tostring(self.Settings.AutoShootRate) .. " shots/sec"

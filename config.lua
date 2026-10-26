@@ -54,8 +54,10 @@ return {
     AimDistance = 350,
     AimSmoothness = 0.18,
 
-    -- Uses an equipped Tool:Activate; no weapon remotes or damage hacks.
+    -- Mouse mode simulates left click when the executor exposes mouse1click.
+    -- Tool mode uses an equipped Tool:Activate. Neither modifies game remotes.
     AutoShootEnabled = false,
+    AutoShootInputMode = "Mouse", -- "Mouse" left click, or "Tool"
     AutoShootLineOfSight = true,
     AutoShootRate = 3, -- activation attempts per second (1-8)
 
