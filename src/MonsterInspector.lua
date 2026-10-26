@@ -81,7 +81,7 @@ function MonsterInspector:NearestModels()
     local origin = root and root.Position or (camera and camera.CFrame.Position)
     if not origin then return {}, {} end
 
-    local strong, unknown, catches = {}, {}, {}
+    local strong, unknown, catches, cars = {}, {}, {}, {}
     for _, instance in ipairs(workspace:GetDescendants()) do
         if instance:IsA("Model") and not isPlayerOwned(instance) then
             local position = modelPosition(instance)
@@ -97,6 +97,8 @@ function MonsterInspector:NearestModels()
                         table.insert(strong, entry)
                     elseif self.Tracker:IsHandCatch(instance) then
                         table.insert(catches, entry)
+                    elseif self.Tracker:Classify(instance) == "car" then
+                        table.insert(cars, entry)
                     else
                         table.insert(unknown, entry)
                     end
@@ -111,7 +113,8 @@ function MonsterInspector:NearestModels()
     table.sort(strong, sortByDistance)
     table.sort(unknown, sortByDistance)
     table.sort(catches, sortByDistance)
-    return strong, unknown, catches
+    table.sort(cars, sortByDistance)
+    return strong, unknown, catches, cars
 end
 
 function MonsterInspector:RaycastModel()
@@ -211,6 +214,10 @@ function MonsterInspector:FormatModel(model, note)
         local quality = self.QualityResolver.Read(model)
         table.insert(lines, quality.Text .. " (source: " ..
             tostring(quality.Source) .. ")")
+        if self.Tracker:IsDhab(model) then
+            table.insert(lines, "--- QUALITY DETAILS ---")
+            table.insert(lines, self.QualityResolver.Diagnose(model))
+        end
     end
 
     local parent = model.Parent
@@ -249,7 +256,7 @@ function MonsterInspector:InspectAtCursor()
     end
 
     -- Both mouse and ray can hit Terrain or scenery instead of a creature.
-    local strong, unknown, catches = self:NearestModels()
+    local strong, unknown, catches, cars = self:NearestModels()
     local nearCursor = self:ClosestToCursor(strong)
     if nearCursor then
         self:PrintAndCopy(self:FormatModel(nearCursor, "Nearest NPC on screen"))
@@ -259,17 +266,20 @@ function MonsterInspector:InspectAtCursor()
             .. "\nHint: Press O to list potential monster models nearby.")
     else
         self:PrintAndCopy(self:BuildList(strong, unknown,
-            "No monster model under cursor (Terrain or empty space).", catches))
+            "No monster model under cursor (Terrain or empty space).",
+            catches, cars))
     end
 end
 
-function MonsterInspector:BuildList(strong, unknown, reason, catches)
+function MonsterInspector:BuildList(strong, unknown, reason, catches, cars)
     catches = catches or {}
+    cars = cars or {}
     local lines = {
         "=== IVORY NEARBY MODEL SCAN ===",
         reason or "Nearby replicated Workspace models",
         "Recognized monster models: " .. tostring(#strong),
         "Thrown HandCatch models: " .. tostring(#catches),
+        "Whole car models: " .. tostring(#cars),
         "Other nearby models: " .. tostring(#unknown),
         "Radius: " .. tostring(SCAN_RADIUS) .. " studs",
         "Only the first " .. tostring(MAX_LIST) .. " models from each group are listed.",
@@ -280,16 +290,28 @@ function MonsterInspector:BuildList(strong, unknown, reason, catches)
     if #strong == 0 then table.insert(lines, "  none detected") end
     for index = 1, math.min(#strong, MAX_LIST) do
         local item = strong[index]
-        table.insert(lines, string.format("%d. %s | %.0f studs | %s",
-            index, item.Model.Name, item.Distance, item.Model:GetFullName()))
+        local quality = self.QualityResolver
+            and self.QualityResolver.Read(item.Model)
+        table.insert(lines, string.format("%d. %s | %.0f studs | %s | %s",
+            index, item.Model.Name, item.Distance,
+            quality and quality.Text or "Quality: Unknown",
+            item.Model:GetFullName()))
     end
 
-    table.insert(lines, "")
     table.insert(lines, "")
     table.insert(lines, "THROWN HANDCATCH OBJECTS:")
     if #catches == 0 then table.insert(lines, "  none detected") end
     for index = 1, math.min(#catches, MAX_LIST) do
         local item = catches[index]
+        table.insert(lines, string.format("%d. %s | %.0f studs | %s",
+            index, item.Model.Name, item.Distance, item.Model:GetFullName()))
+    end
+
+    table.insert(lines, "")
+    table.insert(lines, "WHOLE CARS:")
+    if #cars == 0 then table.insert(lines, "  none detected") end
+    for index = 1, math.min(#cars, MAX_LIST) do
+        local item = cars[index]
         table.insert(lines, string.format("%d. %s | %.0f studs | %s",
             index, item.Model.Name, item.Distance, item.Model:GetFullName()))
     end
@@ -312,8 +334,8 @@ function MonsterInspector:BuildList(strong, unknown, reason, catches)
 end
 
 function MonsterInspector:ScanNearby()
-    local strong, unknown, catches = self:NearestModels()
-    self:PrintAndCopy(self:BuildList(strong, unknown, nil, catches))
+    local strong, unknown, catches, cars = self:NearestModels()
+    self:PrintAndCopy(self:BuildList(strong, unknown, nil, catches, cars))
 end
 
 function MonsterInspector:MarkAtCursor()

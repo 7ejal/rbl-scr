@@ -53,3 +53,15 @@
 - [ ] Call getgenv().IvoryESP_Stop() and verify full cleanup/FOV restoration.
 - [ ] Test in games where monsters are streamed in and out.
 - [ ] Measure FPS on servers with 20+ players and many NPCs.
+
+
+## Cars + quality test cases
+
+- [ ] \`Workspace.PlayersCars.DH_8638378195_SHAS_2025__2\` appears as one purple car ESP with no duplicate wheel/tire highlights.
+- [ ] Cars tab toggles independent from monster, player and HandCatch ESP, with an accurate whole-car count.
+- [ ] Cars cannot be targeted by Auto Aim or Auto Shoot.
+- [ ] The Quality tab's **Inspect nearest Dhab quality** works without F9, displays actual source and copies/exports a report.
+- [ ] Dhab quality is read from matching local attributes, nested ValueObjects or displayed labels when present.
+- [ ] Exact-ID matching of ReplicatedStorage/PlayerGui data is used only when linked to the same Dhab; no quality leaks between 24 Dhab.
+- [ ] The \`O\` scan shows Dhab quality and a separate whole-car section.
+- [ ] If no quality is client-replicated, **Quality: Unknown** appears (no fabricated percentage).

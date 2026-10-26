@@ -58,11 +58,12 @@ function Tracker.new(onAdd, onRemove, settings)
         OnAdd = onAdd,
         OnRemove = onRemove,
         Settings = settings,
-        Known = {}, -- Instance -> monster, handcatch, or other
+        Known = {}, -- Instance -> monster, handcatch, car, or other
         Connections = {},
         Started = false,
         WildlifeRoot = nil,
         HandCatchRoot = nil,
+        CarsRoot = nil,
     }, Tracker)
 end
 
@@ -74,6 +75,16 @@ function Tracker:Classify(instance)
     local isModel = instance:IsA("Model")
     local isPart = instance:IsA("BasePart")
     if not isModel and not isPart then return nil end
+
+    -- One car Model per vehicle, never wheels/tires/accessories.
+    local carRoot = self.CarsRoot
+    if carRoot and instance:IsDescendantOf(carRoot) then
+        if isModel and instance.Parent == carRoot
+            and instance:FindFirstChildWhichIsA("BasePart", true) then
+            return "car"
+        end
+        return nil
+    end
 
     -- In this game DhabWild is a wildlife source, as shown by the scan.
     -- Highlight whole creature models, never repeated nested model/rig parts.
@@ -207,6 +218,9 @@ function Tracker:Scan()
         self.HandCatchRoot = workspace:FindFirstChild(
             self.Settings.HandCatchFolderName or "DhabHandCatches"
         )
+        self.CarsRoot = workspace:FindFirstChild(
+            self.Settings.CarsFolderName or "PlayersCars"
+        )
 
         -- Recognize creatures before traversing thousands of unrelated models.
         if self.WildlifeRoot then
@@ -222,6 +236,12 @@ function Tracker:Scan()
                 if caught:IsA("Model") or caught:IsA("BasePart") then
                     self:Check(caught)
                 end
+            end
+        end
+
+        if self.CarsRoot then
+            for _, car in ipairs(self.CarsRoot:GetChildren()) do
+                if car:IsA("Model") then self:Check(car) end
             end
         end
 
@@ -321,7 +341,8 @@ function Tracker:GetChoices(maxResults, includeScenery)
     end
     table.sort(choices, function(a, b)
         if a.Registered ~= b.Registered then return a.Registered end
-        local priority = {monster = 1, handcatch = 2, other = 3, unknown = 4}
+        local priority = {monster = 1, handcatch = 2, car = 3,
+            other = 4, unknown = 5}
         if priority[a.Category] ~= priority[b.Category] then
             return priority[a.Category] < priority[b.Category]
         end
@@ -340,6 +361,9 @@ function Tracker:Start()
     self.HandCatchRoot = workspace:FindFirstChild(
         self.Settings.HandCatchFolderName or "DhabHandCatches"
     )
+    self.CarsRoot = workspace:FindFirstChild(
+        self.Settings.CarsFolderName or "PlayersCars"
+    )
     table.insert(self.Connections, workspace.DescendantAdded:Connect(function(instance)
         if instance.Parent == workspace then
             if instance.Name == (self.Settings.WildlifeFolderName or "DhabWild") then
@@ -350,6 +374,12 @@ function Tracker:Start()
             elseif instance.Name == (self.Settings.HandCatchFolderName
                 or "DhabHandCatches") then
                 self.HandCatchRoot = instance
+                task.defer(function()
+                    if self.Started then self:Scan() end
+                end)
+            elseif instance.Name == (self.Settings.CarsFolderName
+                or "PlayersCars") then
+                self.CarsRoot = instance
                 task.defer(function()
                     if self.Started then self:Scan() end
                 end)

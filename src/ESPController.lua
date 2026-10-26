@@ -36,7 +36,11 @@ end
 
 function ESPController:AddMonster(model, category)
     if self.Monsters[model] then return end
-    if category == "handcatch" then
+    if category == "car" then
+        self.Monsters[model] = self.Classes.CarESP.new(
+            model, self.UI.Gui, self.Classes, self.Settings
+        )
+    elseif category == "handcatch" then
         self.Monsters[model] = self.Classes.HandCatchESP.new(
             model, self.UI.Gui, self.Classes, self.Settings
         )
@@ -59,17 +63,20 @@ function ESPController:RemoveMonster(model)
 end
 
 function ESPController:UpdateMonsterCount()
-    local count, handCount = 0, 0
+    local count, handCount, carCount = 0, 0, 0
     for _, record in pairs(self.Monsters) do
         if record.Category == "monster" then
             count = count + 1
         elseif record.Category == "handcatch" then
             handCount = handCount + 1
+        elseif record.Category == "car" then
+            carCount = carCount + 1
         end
     end
     if self.UI then
         self.UI:SetMonsterCount(count)
         self.UI:SetHandCatchCount(handCount)
+        self.UI:SetCarCount(carCount)
     end
 end
 
@@ -114,12 +121,63 @@ function ESPController:SetSetting(key, value)
         for _, record in pairs(self.Monsters) do
             if record.Category == "handcatch" then record:Hide() end
         end
+    elseif key == "CarsEnabled" and not value then
+        for _, record in pairs(self.Monsters) do
+            if record.Category == "car" then record:Hide() end
+        end
     end
     if self.UI then self.UI:Refresh() end
 end
 
 function ESPController:Toggle()
     self:SetEnabled(not self.Settings.Enabled)
+end
+
+function ESPController:InspectNearestDhabQuality()
+    if not self.MonsterTracker then return end
+    local camera = workspace.CurrentCamera
+    local character = self.LocalPlayer.Character
+    local root = character and character:FindFirstChild("HumanoidRootPart")
+    local origin = root and root.Position or
+        (camera and camera.CFrame.Position)
+    if not origin then
+        self.UI:SetQualityReport("No player or camera position available")
+        return
+    end
+
+    local nearest, nearestDist = nil, math.huge
+    for model, _ in pairs(self.MonsterTracker.Known) do
+        if self.MonsterTracker:IsDhab(model) then
+            local part = model.PrimaryPart
+                or model:FindFirstChild("HumanoidRootPart", true)
+                or model:FindFirstChildWhichIsA("BasePart", true)
+            if part then
+                local distance = (part.Position - origin).Magnitude
+                if distance < nearestDist then
+                    nearest, nearestDist = model, distance
+                end
+            end
+        end
+    end
+
+    if not nearest then
+        self.UI:SetQualityReport(
+            "No replicated live Dhab found. Enter an area with wildlife and rescan."
+        )
+        return
+    end
+
+    local report = self.Classes.QualityResolver.Diagnose(nearest)
+    self.UI:SetQualityReport(report)
+    local env = _G
+    pcall(function()
+        if type(getgenv) == "function" then env = getgenv() end
+    end)
+    env.IvoryQualityReport = report
+    if type(setclipboard) == "function" then
+        pcall(setclipboard, report)
+    end
+    print(report)
 end
 
 function ESPController:Start()
@@ -138,6 +196,7 @@ function ESPController:Start()
         self:SetSetting(key, value)
     end
     self.UI.OnRescan = function() self:RescanMonsters() end
+    self.UI.OnQualityScan = function() self:InspectNearestDhabQuality() end
     self.UI.OnTargetsRefresh = function(showScenery)
         if self.MonsterTracker then
             self.UI:RenderTargets(
@@ -244,6 +303,7 @@ function ESPController:Start()
             local visible = category == "monster" and self.Settings.MonsterEnabled
                 or (category == "other" and self.Settings.OtherNPCEnabled)
                 or (category == "handcatch" and self.Settings.HandCatchEnabled)
+                or (category == "car" and self.Settings.CarsEnabled)
             if visible then
                 local ok = pcall(record.Update, record, camera, localRoot)
                 if not ok then record:Hide() end

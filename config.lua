@@ -31,6 +31,12 @@ return {
     -- Real game scan: Workspace.DhabWild.Dhab_fa1f92
     WildlifeFolderName = "DhabWild",
     HandCatchFolderName = "DhabHandCatches",
+    CarsFolderName = "PlayersCars",
+    CarsEnabled = true,
+    CarBoxes = true,
+    CarNames = true,
+    CarDistance = true,
+    CarHighlights = true,
     DhabQualityEnabled = true,
 
     HandCatchEnabled = true,

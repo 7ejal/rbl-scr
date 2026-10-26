@@ -122,3 +122,16 @@ Each behavior has its own class-like module. Edit a module without re-copying th
 - Target names added through the GUI or M are remembered only in the current client session; for persistence across Roblox launches, copy exact names into `config.lua`.
 - The script is untested in a live Xeno/Roblox runtime; follow tests/MANUAL_TESTS.md.
 - Automatic HandCatch detection requires the object to be replicated under `Workspace.DhabHandCatches`. If your thrown object is stored elsewhere, inspect its path (P/O) and change `HandCatchFolderName` in `config.lua`.
+
+
+## Cars ESP and live Dhab quality diagnostics (October 26, 2026)
+
+The in-game scan revealed \`Workspace.PlayersCars.DH_8638378195_SHAS_2025__2\` with nested \`Wheels\`, \`Tire\`, \`Body\` and accessories. **Cars** now has independent purple outlines, whole-car boxes, names, distances and highlights. Classification accepts **only direct car Models** in \`Workspace.PlayersCars\` so wheels/tires don't generate separate ESP. Cars are never aim or shoot targets.
+
+**Quality** now has a dedicated tab. Press **Inspect nearest Dhab quality** to identify a nearby Dhab, display its source, model attributes and candidate quality metadata in the GUI. It also copies the report to the clipboard if available and stores the text in \`getgenv().IvoryQualityReport\`. F9 is not required. The \`O\` nearby scan includes each Dhab's resolved quality and a separate whole-car section.
+
+\`src/QualityResolver.lua\` reads the creature's own attributes and nested Value objects first, followed by explicitly labeled quality text. When needed, it scans bounded, cached replicated metadata in \`ReplicatedStorage\` and \`PlayerGui\` and accepts an **exact Dhab ID match only**. It does not infer quality from a name or reuse another Dhab's value.
+
+**Crucial:** The scan identifies model paths but does not establish where quality is stored in the game. If a Dhab still shows \`Quality: Unknown\`, the client may not have the value. Inspect the report and—because you own the game—consider copying the authoritative server-side quality onto a replicated \`Quality\` model attribute in Roblox Studio. This is more reliable than guessing from client model names.
+
+Added: \`src/CarESP.lua\` (one ESP per whole car). Existing class-based features and HandCatch isolation remain intact.

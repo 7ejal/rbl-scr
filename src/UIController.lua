@@ -80,6 +80,8 @@ function UIController.new(playerGui, settings, fov, janitorClass)
         ShowScenery = false,
         MonsterCount = 0,
         HandCatchCount = 0,
+        CarCount = 0,
+        OnQualityScan = nil,
         ActivePage = "ESP",
         DraggingFOV = false,
         DraggingWindow = false,
@@ -181,9 +183,10 @@ function UIController.new(playerGui, settings, fov, janitorClass)
         BackgroundTransparency = 1,
     })
 
-    local tabs = {"Home", "ESP", "Auto Aim", "Auto Shoot", "Monsters", "HandCatch", "Targets", "Settings"}
+    local tabs = {"Home", "ESP", "Auto Aim", "Auto Shoot", "Monsters",
+        "HandCatch", "Cars", "Quality", "Targets", "Settings"}
     for index, name in ipairs(tabs) do
-        local tab = button(sidebar, name, 10, 10 + (index - 1) * 49, 161, 41, COLOR.Sidebar)
+        local tab = button(sidebar, name, 10, 10 + (index - 1) * 40, 161, 35, COLOR.Sidebar)
         self.Tabs[name] = tab
         self.Janitor:Add(tab.MouseButton1Click:Connect(function()
             self:ShowPage(name)
@@ -314,6 +317,71 @@ function UIController.new(playerGui, settings, fov, janitorClass)
     corner(catchPanel, 8)
     self.HandCatchCountLabel = label(catchPanel,
         "Thrown HandCatch detected: 0", 15, 3, 430, 48, 13)
+
+    -- Cars: direct models in PlayersCars only, no duplicate wheel outlines.
+    local cars = self.Pages.Cars
+    self:ToggleRow(cars, "Car ESP", "CarsEnabled", 0)
+    self:ToggleRow(cars, "Car boxes", "CarBoxes", 50)
+    self:ToggleRow(cars, "Car names", "CarNames", 100)
+    self:ToggleRow(cars, "Car distance", "CarDistance", 150)
+    self:ToggleRow(cars, "Car wall highlights", "CarHighlights", 200)
+    local carInfo = create("Frame", cars, {
+        Position = UDim2.fromOffset(0, 267),
+        Size = UDim2.fromOffset(461, 105),
+        BackgroundColor3 = COLOR.Sidebar,
+        BorderSizePixel = 0,
+    })
+    corner(carInfo, 8)
+    self.CarCountLabel = label(carInfo,
+        "Detected whole cars: 0", 15, 4, 430, 40, 14)
+    local carHint = label(carInfo,
+        "One outline per vehicle in Workspace.PlayersCars. Tires and wheels are excluded.",
+        15, 43, 433, 50, 12)
+    carHint.TextWrapped = true
+    carHint.TextTruncate = Enum.TextTruncate.None
+    carHint.TextColor3 = COLOR.Muted
+
+    -- Per-Dhab quality diagnostic without requiring the F9 console.
+    local quality = self.Pages.Quality
+    self:ToggleRow(quality, "Show live Dhab quality", "DhabQualityEnabled", 0)
+    self:ToggleRow(quality, "Show HandCatch quality", "HandCatchQuality", 50)
+    local qualityScan = button(quality,
+        "Inspect nearest Dhab quality", 0, 105, 260, 38, COLOR.Row)
+    self.Janitor:Add(qualityScan.MouseButton1Click:Connect(function()
+        if self.OnQualityScan then self.OnQualityScan() end
+    end))
+    local qualityHint = label(quality,
+        "Scans this Dhab's metadata and exact-ID-linked client records. Copies the report where supported.",
+        6, 147, 450, 46, 12)
+    qualityHint.TextWrapped = true
+    qualityHint.TextTruncate = Enum.TextTruncate.None
+    qualityHint.TextColor3 = COLOR.Muted
+
+    local reportScroll = create("ScrollingFrame", quality, {
+        Name = "QualityDiagnostic",
+        Position = UDim2.fromOffset(0, 204),
+        Size = UDim2.fromOffset(461, 208),
+        BackgroundColor3 = COLOR.Sidebar,
+        BorderSizePixel = 0,
+        ScrollBarThickness = 4,
+        CanvasSize = UDim2.fromOffset(0, 208),
+    })
+    corner(reportScroll, 8)
+    self.QualityReport = create("TextLabel", reportScroll, {
+        Name = "QualityReport",
+        Position = UDim2.fromOffset(9, 8),
+        Size = UDim2.new(1, -21, 0, 160),
+        AutomaticSize = Enum.AutomaticSize.Y,
+        BackgroundTransparency = 1,
+        Text = "Select Inspect nearest Dhab quality. Unknown means no replicated value was found.",
+        TextColor3 = COLOR.Text,
+        Font = Enum.Font.Code,
+        TextSize = 12,
+        TextWrapped = true,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        TextYAlignment = Enum.TextYAlignment.Top,
+    })
+    self.QualityReportScroll = reportScroll
 
     -- Aim tab: the camera rotates toward a live Dhab only.
     local aim = self.Pages["Auto Aim"]
@@ -641,9 +709,27 @@ function UIController:SetAutoShootStatus(status)
     end
 end
 
+function UIController:SetCarCount(count)
+    self.CarCount = count
+    if self.CarCountLabel then
+        self.CarCountLabel.Text = "Detected whole cars: " .. tostring(count)
+    end
+    self:UpdateHomeCounts()
+end
+
+function UIController:SetQualityReport(report)
+    if not self.QualityReport then return end
+    self.QualityReport.Text = tostring(report):sub(1, 8000)
+    local height = self.QualityReport.TextBounds.Y
+    self.QualityReportScroll.CanvasSize = UDim2.fromOffset(
+        0, math.max(208, height + 24)
+    )
+end
+
 function UIController:UpdateHomeCounts()
     self.HomeStatus.Text = "Live creatures: " .. tostring(self.MonsterCount)
         .. "   |   Thrown HandCatch: " .. tostring(self.HandCatchCount)
+        .. "   |   Cars: " .. tostring(self.CarCount)
 end
 
 function UIController:SetMonsterCount(count)
