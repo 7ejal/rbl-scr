@@ -102,7 +102,12 @@ function ESPController:EmergencyStop()
     self.Settings.AutoHuntEnabled = false
     self.Settings.AutoShootEnabled = false
     self.Settings.AimEnabled = false
-    if self.Hunt then self.Hunt:Reset();self.Hunt:SetStatus("F8 emergency stop") end
+    if self.Hunt then
+        self.Hunt.LockedModel=nil
+        self.Hunt:Reset()
+        self.Hunt:SetStatus("F8 emergency stop")
+    end
+    if self.Learner and self.Learner.Running then self.Learner:Cancel() end
     if self.Hunt and self.Hunt.Vehicle then self.Hunt.Vehicle:Stop() end
     if self.AutoShoot then self.AutoShoot:ReleaseMouse()
         self.AutoShoot:SetStatus("F8 emergency stop") end
@@ -150,6 +155,22 @@ function ESPController:Diagnostics()
             and vehicle.Input.SwitchedBackend or false),
         "Vehicle unresponsive: " .. tostring(vehicle
             and vehicle.NoResponse or false),
+        "Selected car type: "..tostring(vehicle and vehicle.Vehicle
+            and (vehicle.Vehicle:GetAttribute("CarType")
+                or vehicle.Vehicle:GetAttribute("VehicleType")
+                or vehicle.Vehicle:GetAttribute("ModelName")
+                or vehicle.Vehicle.Name) or "unknown"),
+        "Input backend in use: "..tostring(vehicle
+            and vehicle.ResolvedInputMode or "unknown"),
+        "Input profile: "..tostring(vehicle and vehicle.Vehicle
+            and (self.Settings.HuntCarProfiles or {})[
+                vehicle.Vehicle:GetAttribute("CarType")
+                or vehicle.Vehicle:GetAttribute("VehicleType")
+                or vehicle.Vehicle:GetAttribute("ModelName")
+                or vehicle.Vehicle.Name] or "not calibrated"),
+        "Learner: "..tostring(self.Learner and self.Learner.Status or "not active"),
+        "Observed locations: "..tostring(self.Heatmap and self.Heatmap.Total or 0),
+        "Safety focus: "..tostring(self.Safety and self.Safety.LastEvent or "unknown"),
         "HUD N may mean Neutral. Verify gear manually before retrying.",
         "Auto Shoot: " .. tostring(self.AutoShoot and self.AutoShoot.Status or "not initialized"),
         "Radar: " .. tostring(self.Settings.RadarEnabled),
@@ -159,8 +180,26 @@ function ESPController:Diagnostics()
         "Lua memory: " .. luaMemory .. " (if executor allows it)",
         "Planner: " .. tostring(self.Planner and self.Planner:Describe() or "not initialized"),
         "F8 stops Hunt / Shoot / Aim and releases WASD",
+        "Manual control learner: "..tostring(self.Learner
+            and self.Learner.Report or "not run"),
     }
     return table.concat(report, "\n")
+end
+
+function ESPController:ApplyHuntPreset(name)
+    local priority={Closest="Closest",Biggest="Largest",
+        Longest="Longest",["T3+"]="Closest"}
+    if not priority[name] then return end
+    self.Settings.HuntPriority=priority[name]
+    self.Settings.HuntMinLength=0
+    for tier=1,6 do
+        self.Settings["HuntTierT"..tier]=
+            name~="T3+" or tier>=3
+    end
+    self.Settings.HuntTierUnknown=false
+    if self.Hunt then self.Hunt.LockedModel=nil;self.Hunt:Reset() end
+    if self.Store then self.Store:OnSettingChanged("HuntPriority") end
+    if self.UI then self.UI:Refresh() end
 end
 
 function ESPController:MarkAvoidZone()
@@ -191,7 +230,8 @@ function ESPController:SetSetting(key, value)
     end
     if key:match("^HuntTier") or key == "HuntPriority"
         or key == "HuntMinLength" or key == "HuntSearchDistance"
-        or key == "HuntRouteEnabled" then
+        or key == "HuntRouteEnabled"
+        or key == "HuntTargetLockEnabled" then
         if self.Hunt then self.Hunt:Reset() end
     end
     if self.Store then
@@ -294,6 +334,8 @@ function ESPController:Start()
     self.Stats = self.Classes.HuntStats.new(self.Settings)
     self.Planner = self.Classes.HuntPlanner.new(self.Settings)
     self.Catches = self.Classes.CatchTracker.new(self.Settings)
+    self.Learner = self.Classes.VehicleControlLearner.new(
+        self.Settings,self.Classes.VehicleKeyInput)
     self.FOV = self.Classes.FOVController.new(self.Settings)
     self.AntiFog = self.Classes.AntiFogController.new()
     self.UI = self.Classes.UIController.new(
@@ -317,6 +359,34 @@ function ESPController:Start()
             self.Hunt.Vehicle:RetryInput()
         end
         self.UI:SetDiagnosticStatus(self:Diagnostics())
+    end
+    self.Learner.OnUpdate=function(status)
+        if self.UI then
+            self.UI:SetLearnerStatus(status.."\n"..self.Learner.Report)
+            self.UI:SetDiagnosticStatus(self:Diagnostics())
+        end
+        if status:find("Calibrated ",1,true) and self.Store then
+            self.Store:OnSettingChanged("HuntCarProfiles")
+        end
+    end
+    self.UI.OnObserveDriving=function() self.Learner:Observe() end
+    self.UI.OnCalibrateCar=function() self.Learner:Calibrate() end
+    self.UI.OnCancelCalibration=function() self.Learner:Cancel() end
+    self.UI.OnPreset=function(name) self:ApplyHuntPreset(name) end
+    self.UI.OnNextTarget=function()
+        if self.Hunt then self.Hunt:SelectNeighbor(1) end
+        self.UI:Refresh()
+    end
+    self.UI.OnPreviousTarget=function()
+        if self.Hunt then self.Hunt:SelectNeighbor(-1) end
+        self.UI:Refresh()
+    end
+    self.UI.OnUnlockTarget=function()
+        if self.Hunt then self.Hunt:UnlockTarget() end
+        self.UI:Refresh()
+    end
+    self.UI.OnClearHeatmap=function()
+        if self.Heatmap then self.Heatmap:Reset() end
     end
     self.UI.OnStatsReset = function()
         if self.Stats then self.Stats:Reset() end
@@ -355,6 +425,12 @@ function ESPController:Start()
         self.Settings.EmergencyKey,
         function() self:EmergencyStop() end
     )
+    self.Safety=self.Classes.SafetyGuard.new(function()
+        if self.Settings.AutoHuntEnabled or self.Settings.AutoShootEnabled
+            or (self.Learner and self.Learner.Running) then
+            self:EmergencyStop()
+        end
+    end)
     -- Create the tracker before the inspector so its target lookup is valid.
     self.MonsterTracker = self.Classes.MonsterTracker.new(
         function(model, category) self:AddMonster(model, category) end,
@@ -416,6 +492,8 @@ function ESPController:Start()
     self.Hunt.Vehicle = self.Classes.VehicleHuntController.new(
         self.Settings, self.Classes.VehicleKeyInput
     )
+    self.Hunt.Vehicle.Navigator=self.Classes.OffroadNavigator.new(
+        self.Settings)
     self.Hunt.Planner = self.Planner
     self.Hunt.Stats = self.Stats
     self.Hunt:Start()
@@ -426,6 +504,13 @@ function ESPController:Start()
         function() return self.Hunt and self.Hunt.Target or nil end
     )
     self.Radar:Start()
+    local playerGui=self.LocalPlayer:WaitForChild("PlayerGui")
+    self.HUD=self.Classes.HuntHUD.new(self.Settings,playerGui,
+        function() return self.Hunt end)
+    self.HUD:Start()
+    self.Heatmap=self.Classes.SpawnHeatmap.new(self.Settings,
+        self.MonsterTracker,playerGui)
+    self.Heatmap:Start()
     self.StatsRefresh = 0
 
     self.Running = true
@@ -438,6 +523,19 @@ function ESPController:Start()
         self.StatsRefresh = self.StatsRefresh + dt
         if self.StatsRefresh >= 1 then
             self.StatsRefresh = 0
+            local longest,length=nil,-math.huge
+            if self.Settings.HighlightLongestDhab then
+                for model,category in pairs(self.MonsterTracker.Known) do
+                    if category=="monster" and self.MonsterTracker:IsDhab(model)
+                        and model:IsDescendantOf(workspace) then
+                        local len=model:GetAttribute("Length")
+                        if type(len)=="number" and len>length then
+                            longest,length=model,len
+                        end
+                    end
+                end
+            end
+            self.Settings.LongestDhabModel=longest
             if self.UI and self.Stats then
                 if self.Catches then self.Catches:Update() end
                 self.UI:SetStatistics(self.Stats:GetSummary() ..
@@ -501,7 +599,10 @@ function ESPController:Destroy()
     end
     table.clear(self.Connections)
 
+    if self.Learner then self.Learner:Destroy() end
     if self.Hunt then self.Hunt:Destroy() end
+    if self.HUD then self.HUD:Destroy() end
+    if self.Heatmap then self.Heatmap:Destroy() end
     if self.Radar then self.Radar:Destroy() end
     if self.AutoShoot then self.AutoShoot:Destroy() end
     if self.Aim then self.Aim:Destroy() end
@@ -509,6 +610,7 @@ function ESPController:Destroy()
     if self.MonsterTracker then self.MonsterTracker:Destroy() end
     if self.Keys then self.Keys:Destroy() end
     if self.Emergency then self.Emergency:Destroy() end
+    if self.Safety then self.Safety:Destroy() end
     if self.Inspector then self.Inspector:Destroy() end
 
     local players = {}

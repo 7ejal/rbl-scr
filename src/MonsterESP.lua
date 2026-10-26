@@ -16,7 +16,7 @@ function MonsterESP.new(instance, parent, classes, settings, category, isDhab)
         Projection = classes.Projection,
         IsDhab = isDhab == true,
         Quality = classes.QualityESP.new(box, instance, classes.QualityResolver),
-        DhabStats = classes.DhabStatsESP.new(box, instance),
+        DhabStats = classes.DhabStatsESP.new(box, instance, settings),
     }, MonsterESP)
 end
 
@@ -57,6 +57,21 @@ function MonsterESP:Update(camera, localRoot)
     local isMonster = self.Category == "monster"
     local color = isMonster and Color3.fromRGB(255, 164, 65)
         or Color3.fromRGB(80, 180, 255)
+    if self.IsDhab and self.Settings.DhabTierColorsEnabled then
+        local colors={
+            T1=Color3.fromRGB(196,196,202),
+            T2=Color3.fromRGB(83,179,255),
+            T3=Color3.fromRGB(191,114,255),
+            T4=Color3.fromRGB(250,188,62),
+            T5=Color3.fromRGB(245,90,128),
+            T6=Color3.fromRGB(255,225,114),
+        }
+        color=colors[target:GetAttribute("Tier")] or color
+    end
+    if self.IsDhab and self.Settings.HighlightLongestDhab
+        and self.Settings.LongestDhabModel==target then
+        color=Color3.fromRGB(255,227,90)
+    end
     local showHighlight = isMonster and self.Settings.MonsterHighlights
         or (not isMonster and self.Settings.ShowHighlights)
 
@@ -79,7 +94,10 @@ function MonsterESP:Update(camera, localRoot)
     local value = target:GetAttribute("DisplayName") or target.Name
     local showNames = isMonster and self.Settings.MonsterNames or
         (not isMonster and self.Settings.ShowNames)
-    self.Name:Update({DisplayName = tostring(value)}, showNames)
+    local longest=self.IsDhab and self.Settings.HighlightLongestDhab
+        and self.Settings.LongestDhabModel==target
+    self.Name:Update({DisplayName = tostring(value)
+        .. (longest and " [LONGEST]" or "")}, showNames)
 
     self.Distance:Update(distance,
         isMonster and self.Settings.MonsterDistance

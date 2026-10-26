@@ -213,3 +213,25 @@
 - [ ] Diagnostics page is scrollable (no Frame.ScrollBarThickness error); Retry button resets no-response lockout after the user manually selects Drive.
 - [ ] Manual keyboard W acceleration and actual HUD gear are confirmed in the game separately; don't assume 'N' definitely means transmission Neutral without inspecting that game's control system.
 - [ ] F8, seat exit, Hunt off and reload immediately release all simulated keys even during fallback attempts.
+
+
+## Ten-upgrade regression checklist (awaiting actual Roblox/Xeno tests)
+
+- [ ] Vehicle Lab observation requires local driver seat, Hunt OFF and real user driving; measures UIS W/A/S/D sample counts, seat throttle and speed without injecting inputs.
+- [ ] Calibration is explicit and low speed, requires driver and stationary car, cancels on F8, seat change, Hunt ON or focus loss; all keys and Seat floats are released.
+- [ ] Calibration confirms method only if physical speed rises or position changes; no-response never creates a false positive.
+- [ ] Auto car input uses the matching verified profile from car type attribute/name, falling back to Keyboard if no profile; other car types never inherit the wrong profile.
+- [ ] Car profile JSON is sanitized to 25 entries, name length max 100, values only Keyboard/Seat and saved only with explicit Save preferences opt-in.
+- [ ] Cruise speed tapers as the remaining stopping distance shrinks; severe turns reduce desired speed; 120 km/h remains an upper target, never an acceleration guarantee.
+- [ ] Offroad assist avoids collision walls and steep ground where detectable, returns a side waypoint only after raycast checks, otherwise stops vehicle inputs; no teleportation.
+- [ ] Next/previous targeting only rotates among currently live/allowed Dhab; lock retains target while valid; unlock resets; exhausted targets produce a status instead of an error.
+- [ ] Closest/Biggest/Longest/T3+ preset buttons update target priority and tier filters correctly, and keep Target Lock and Hold modes coherent.
+- [ ] Tier ESP coloring reads model.GetAttribute("Tier") only; longest Dhab derives from real Length, no unverified quality labels are introduced.
+- [ ] Offscreen pointer shows selected target direction and distance, hides when visible/dead/none, cleans on loader reexecution.
+- [ ] Heatmap counts each client-observed Dhab model once at its initial observed location and shows local counts on an 8x8 grid; never calls counts confirmed server spawns.
+- [ ] Heatmap is opt-in, avoids expensive all-players scans, reset clears counts and seen models, reload cleans the GUI.
+- [ ] Hunt HUD displays real Tier, Length, Scale, distance and measured car speed when available; off by default and does not block click controls.
+- [ ] WindowFocusReleased triggers stop and releases simulated inputs; reentering Roblox does not silently restart car driving. F8 still always works.
+- [ ] New Vehicle Lab and Hunt Tools pages are scrollable; Frame.ScrollBarThickness prior crash remains fixed.
+- [ ] New modules exist and are loaded by main.lua; missing game-only APIs report unsupported and never claim success.
+- [ ] Car Auto Hunt, Auto Shoot, Dhab Stats, HandCatch and Car ESP, Quality, Anti Fog, Radar, Saved Settings stay available.

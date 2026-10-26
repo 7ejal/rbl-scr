@@ -176,7 +176,7 @@ function UIController.new(playerGui, settings, fov, janitorClass)
         BorderSizePixel = 0,
         ScrollBarThickness = 3,
         ScrollingDirection = Enum.ScrollingDirection.Y,
-        CanvasSize = UDim2.fromOffset(0, 620),
+        CanvasSize = UDim2.fromOffset(0, 720),
     })
     corner(sidebar, 12)
 
@@ -188,7 +188,8 @@ function UIController.new(playerGui, settings, fov, janitorClass)
     })
 
     local tabs = {"Home", "ESP", "Auto Aim", "Auto Shoot", "Auto Hunt",
-        "Radar", "Statistics", "Monsters", "HandCatch", "Cars", "Quality",
+        "Vehicle Lab", "Hunt Tools", "Radar", "Statistics",
+        "Monsters", "HandCatch", "Cars", "Quality",
         "Targets", "Settings", "Advanced", "Diagnostics"}
     for index, name in ipairs(tabs) do
         local tab = button(sidebar, name, 10, 10 + (index - 1) * 37, 161, 32, COLOR.Sidebar)
@@ -199,6 +200,7 @@ function UIController.new(playerGui, settings, fov, janitorClass)
         local scrollable = name == "Auto Hunt" or name == "Auto Shoot"
             or name == "Advanced" or name == "Statistics"
             or name == "Diagnostics"
+            or name == "Vehicle Lab" or name == "Hunt Tools"
         -- ScrollBarThickness/CanvasSize only exist on ScrollingFrame.
         -- Passing ScrollBarThickness = 0 to a regular Frame errors at load.
         local pageProps = {
@@ -214,7 +216,9 @@ function UIController.new(playerGui, settings, fov, janitorClass)
             pageProps.CanvasSize = UDim2.fromOffset(0,
                 name == "Auto Hunt" and 1680
                     or (name == "Advanced" and 1180
-                    or (name == "Diagnostics" and 950 or 600)))
+                    or (name == "Diagnostics" and 950
+                    or (name == "Vehicle Lab" and 850
+                    or (name == "Hunt Tools" and 890 or 600)))))
         end
         local page = create(scrollable and "ScrollingFrame" or "Frame",
             mainArea, pageProps)
@@ -604,7 +608,7 @@ function UIController.new(playerGui, settings, fov, janitorClass)
 
     -- Vehicle hunting requires an occupied local VehicleSeat in PlayersCars.
     -- It never auto-enters vehicles or controls other drivers' cars.
-    self:ToggleRow(hunt, "Auto Hunt while driving (VehicleSeat)",
+    self:ToggleRow(hunt, "Auto Hunt in car (driver seat)",
         "HuntCarEnabled", 1080)
     self:ToggleRow(hunt, "Reverse vehicle steering",
         "HuntCarInvertSteering", 1127)
@@ -624,8 +628,8 @@ function UIController.new(playerGui, settings, fov, janitorClass)
     self.CarInputButton = button(hunt,
         "Car input: Keyboard W/A/S/D", 0, 1466, 326, 39, COLOR.Row)
     self.Janitor:Add(self.CarInputButton.MouseButton1Click:Connect(function()
-        local nextMode = self.Settings.HuntCarInputMode == "Keyboard"
-            and "Seat" or "Keyboard"
+        local nextMode = ({Auto="Keyboard",Keyboard="Seat",
+            Seat="Auto"})[self.Settings.HuntCarInputMode] or "Auto"
         self:ChangeSetting("HuntCarInputMode", nextMode)
     end))
 
@@ -658,6 +662,98 @@ function UIController.new(playerGui, settings, fov, janitorClass)
     radarHint.TextWrapped = true
     radarHint.TextTruncate = Enum.TextTruncate.None
     radarHint.TextYAlignment = Enum.TextYAlignment.Top
+    self:ToggleRow(radarPage, "Observed Dhab heatmap", "HeatmapEnabled", 269)
+    local heatReset=button(radarPage,"Clear observed locations",
+        0,324,235,36,COLOR.Row)
+    self.Janitor:Add(heatReset.MouseButton1Click:Connect(function()
+        if self.OnClearHeatmap then self.OnClearHeatmap() end
+    end))
+
+
+    -- Dedicated car observation/calibration page: never calibrate on startup.
+    local lab=self.Pages["Vehicle Lab"]
+    local labHelp=label(lab,
+        "Turn Auto Hunt OFF. First manually shift into Drive and test W on open terrain. Manual Observation reads your driving only. Calibration briefly tests W in a stationary car; F8 cancels.",
+        5,0,446,98,13)
+    labHelp.TextWrapped=true
+    labHelp.TextYAlignment=Enum.TextYAlignment.Top
+    labHelp.TextColor3=COLOR.Muted
+    local observe=button(lab,"Observe manual driving (8s)",
+        0,107,280,40,COLOR.Row)
+    self.Janitor:Add(observe.MouseButton1Click:Connect(function()
+        if self.OnObserveDriving then self.OnObserveDriving() end
+    end))
+    local calibrate=button(lab,"Calibrate car input (slow test)",
+        0,158,280,40,COLOR.Row)
+    self.Janitor:Add(calibrate.MouseButton1Click:Connect(function()
+        if self.OnCalibrateCar then self.OnCalibrateCar() end
+    end))
+    local cancel=button(lab,"Cancel and release inputs",
+        0,209,280,40,COLOR.Off)
+    self.Janitor:Add(cancel.MouseButton1Click:Connect(function()
+        if self.OnCancelCalibration then self.OnCancelCalibration() end
+    end))
+    self.LearnerStatus=label(lab,
+        "No observations yet. Calibrated methods are saved per car model name only if Save preferences locally is ON.",
+        8,264,444,186,12)
+    self.LearnerStatus.TextWrapped=true
+    self.LearnerStatus.TextTruncate=Enum.TextTruncate.None
+    self.LearnerStatus.TextYAlignment=Enum.TextYAlignment.Top
+    self.LearnerStatus.Font=Enum.Font.Code
+    self:ToggleRow(lab,"Approach-speed cruise control",
+        "HuntCarCruiseEnabled",465)
+    self:ToggleRow(lab,"Off-road side-path assist",
+        "HuntOffroadEnabled",515)
+    local warn=label(lab,
+        "Off-road assist uses terrain and obstacle raycasts. It is not a mapped road autopilot. Calibration proves motion only, not that the vehicle can reach 120 km/h.",
+        5,573,444,130,12)
+    warn.TextWrapped=true
+    warn.TextYAlignment=Enum.TextYAlignment.Top
+    warn.TextColor3=COLOR.Muted
+
+    -- Hunting shortcuts and ESP appearance.
+    local toolsPage=self.Pages["Hunt Tools"]
+    self:ToggleRow(toolsPage,"Lock selected Dhab",
+        "HuntTargetLockEnabled",0)
+    local previous=button(toolsPage,"Previous Dhab",
+        0,53,144,37,COLOR.Row)
+    local next=button(toolsPage,"Next Dhab",
+        153,53,144,37,COLOR.Row)
+    local unlock=button(toolsPage,"Unlock",
+        306,53,153,37,COLOR.Row)
+    self.Janitor:Add(previous.MouseButton1Click:Connect(function()
+        if self.OnPreviousTarget then self.OnPreviousTarget() end
+    end))
+    self.Janitor:Add(next.MouseButton1Click:Connect(function()
+        if self.OnNextTarget then self.OnNextTarget() end
+    end))
+    self.Janitor:Add(unlock.MouseButton1Click:Connect(function()
+        if self.OnUnlockTarget then self.OnUnlockTarget() end
+    end))
+    label(toolsPage,"One-click hunt presets",0,106,430,26,14)
+    local presets={"Closest","Biggest","Longest","T3+"}
+    for i,name in ipairs(presets) do
+        local x=(i-1)%2*232
+        local y=138+math.floor((i-1)/2)*47
+        local b=button(toolsPage,name,x,y,217,37,COLOR.Row)
+        self.Janitor:Add(b.MouseButton1Click:Connect(function()
+            if self.OnPreset then self.OnPreset(name) end
+        end))
+    end
+    self:ToggleRow(toolsPage,"Color ESP by real Tier",
+        "DhabTierColorsEnabled",241)
+    self:ToggleRow(toolsPage,"Highlight longest observed Dhab",
+        "HighlightLongestDhab",291)
+    self:ToggleRow(toolsPage,"Compact hunting HUD",
+        "HuntHUDEnabled",341)
+    self:ToggleRow(toolsPage,"Off-screen target arrow",
+        "TargetArrowEnabled",391)
+    local toolsHelp=label(toolsPage,
+        "Tiers are actual model attributes, not guessed rarity. Arrow appears only with a locked or actively hunted live Dhab. Radar has the observation heatmap toggle.",
+        8,447,442,110,12)
+    toolsHelp.TextWrapped=true
+    toolsHelp.TextYAlignment=Enum.TextYAlignment.Top
+    toolsHelp.TextColor3=COLOR.Muted
 
     -- Session statistics and explicitly opt-in local settings persistence.
     local statsPage = self.Pages.Statistics
@@ -997,8 +1093,10 @@ function UIController:Refresh()
             tostring(self.Settings.AutoShootRate) .. " shots/sec"
     end
     if self.CarInputButton then
-        self.CarInputButton.Text = self.Settings.HuntCarInputMode == "Seat"
-            and "Car input: VehicleSeat" or "Car input: Keyboard W/A/S/D"
+        self.CarInputButton.Text =
+            self.Settings.HuntCarInputMode == "Seat" and "Car input: VehicleSeat"
+            or (self.Settings.HuntCarInputMode == "Auto"
+                and "Car input: Auto (calibrated)" or "Car input: Keyboard W/A/S/D")
     end
     if self.AdvancedLabels then
         for key,lbl in pairs(self.AdvancedLabels) do
@@ -1043,6 +1141,12 @@ end
 
 function UIController:SetStorageStatus(status)
     if self.StorageLabel then self.StorageLabel.Text = tostring(status) end
+end
+
+function UIController:SetLearnerStatus(report)
+    if self.LearnerStatus then
+        self.LearnerStatus.Text=tostring(report):sub(1,1600)
+    end
 end
 
 function UIController:SetDiagnosticStatus(report)

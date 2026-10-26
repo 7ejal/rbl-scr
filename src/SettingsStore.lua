@@ -20,7 +20,12 @@ local KEYS = {
     "HuntCarTargetKmh", "HuntCarObstacleBrake",
     "HuntCarInvertSteering",
     "HuntCarInputMode", "HuntCarTurnDeadzone",
-    "HuntRouteEnabled", "HuntScoreLength", "HuntScoreSize",
+    "HuntCarCruiseEnabled", "HuntOffroadEnabled",
+    "HuntRouteEnabled", "HuntTargetLockEnabled",
+    "DhabTierColorsEnabled", "HighlightLongestDhab",
+    "HuntHUDEnabled", "TargetArrowEnabled",
+    "HeatmapEnabled", "HeatmapCellSize",
+    "HuntScoreLength", "HuntScoreSize",
     "HuntScoreDistance", "HuntAvoidRadius",
     "AimPredictionEnabled", "AimLeadSeconds", "PerformanceMode",
     "HuntPriority", "HuntMinLength",
@@ -87,7 +92,8 @@ function Store:Load()
                     default[key] = value
                 end
             elseif key == "HuntCarInputMode" then
-                if value == "Keyboard" or value == "Seat" then
+                if value == "Keyboard" or value == "Seat"
+                    or value == "Auto" then
                     default[key] = value
                 end
             elseif key == "AutoShootInputMode" then
@@ -99,6 +105,21 @@ function Store:Load()
             end
         end
     end
+    -- Car-name input profiles have separate validation; no arbitrary table
+    -- loading into runtime settings and no trusted code in profile values.
+    if type(data.HuntCarProfiles) == "table" then
+        local profiles = {}
+        local count = 0
+        for name, mode in pairs(data.HuntCarProfiles) do
+            if type(name) == "string" and #name <= 100
+                and (mode == "Keyboard" or mode == "Seat")
+                and count < 25 then
+                profiles[name] = mode
+                count = count + 1
+            end
+        end
+        self.Settings.HuntCarProfiles = profiles
+    end
     -- Conservative bounds for writable numeric preferences.
     local bounds = {
         MaxDistance = {100, 5000}, AimRadius = {20, 400},
@@ -108,6 +129,7 @@ function Store:Load()
         HuntShootDistance = {10, 500}, HuntMinLength = {0, 12},
         HuntCarStopDistance = {25, 125}, HuntCarTargetKmh = {30, 180},
         RadarRange = {100, 2000}, CameraFOV = {0, 120},
+        HeatmapCellSize = {50, 350},
         HuntCarTurnDeadzone = {0.05, 0.5},
         HuntScoreLength = {0, 10}, HuntScoreSize = {0, 10},
         HuntScoreDistance = {0, 0.5}, HuntAvoidRadius = {20, 350},
@@ -131,6 +153,17 @@ function Store:SaveNow()
         for _, key in ipairs(KEYS) do
             if key ~= "SaveSettingsEnabled" then data[key] = self.Settings[key] end
         end
+        local profiles = {}
+        local count = 0
+        for name, mode in pairs(self.Settings.HuntCarProfiles or {}) do
+            if type(name) == "string" and #name <= 100
+                and (mode == "Keyboard" or mode == "Seat")
+                and count < 25 then
+                profiles[name] = mode
+                count = count + 1
+            end
+        end
+        data.HuntCarProfiles = profiles
     end
     local ok, err = pcall(function()
         write(self.Filename, HttpService:JSONEncode(data))

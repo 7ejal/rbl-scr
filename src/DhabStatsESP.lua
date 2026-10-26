@@ -8,7 +8,15 @@ local function formatNumber(value)
     return string.format("%.2f", value)
 end
 
-function DhabStatsESP.new(box, model)
+local TIER_COLORS={
+    T1=Color3.fromRGB(196,196,202),
+    T2=Color3.fromRGB(83,179,255),
+    T3=Color3.fromRGB(191,114,255),
+    T4=Color3.fromRGB(250,188,62),
+    T5=Color3.fromRGB(245,90,128),
+    T6=Color3.fromRGB(255,225,114),
+}
+function DhabStatsESP.new(box, model, settings)
     local statsLabel = Instance.new("TextLabel")
     statsLabel.Name = "DhabTierStats"
     statsLabel.AnchorPoint = Vector2.new(0.5, 0)
@@ -27,6 +35,7 @@ function DhabStatsESP.new(box, model)
     return setmetatable({
         Model = model,
         Label = statsLabel,
+        Settings = settings,
     }, DhabStatsESP)
 end
 
@@ -55,7 +64,14 @@ function DhabStatsESP:Update(enabled)
         table.insert(pieces, "Size " .. sizeMultiplier .. "x")
     end
 
-    self.Label.Text = table.concat(pieces, " | ")
+    local longest=self.Settings and self.Settings.HighlightLongestDhab
+        and self.Settings.LongestDhabModel==model
+    self.Label.Text = (longest and "LONGEST | " or "")
+        .. table.concat(pieces, " | ")
+    local color=self.Settings and self.Settings.DhabTierColorsEnabled
+        and TIER_COLORS[tier] or nil
+    self.Label.TextColor3=longest and Color3.fromRGB(255,227,90)
+        or color or Color3.fromRGB(220,245,255)
     self.Label.Visible = #pieces > 0
 end
 

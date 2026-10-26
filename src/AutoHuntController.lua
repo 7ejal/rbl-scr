@@ -59,6 +59,7 @@ function AutoHuntController.new(settings, tracker, aimController, onStatus)
         FailedRoutes = setmetatable({}, {__mode = "k"}),
         StuckAttempts = 0,
         LastPathTarget = nil,
+        LockedModel = nil,
     }, AutoHuntController)
 end
 
@@ -115,6 +116,11 @@ function AutoHuntController:ValidTarget(model, origin)
 end
 
 function AutoHuntController:ClosestDhab(origin)
+    if self.Settings.HuntTargetLockEnabled and self.LockedModel then
+        local valid=self:ValidTarget(self.LockedModel,origin)
+        if valid then return self.LockedModel end
+        self.LockedModel=nil
+    end
     if self.Planner then
         return self.Planner:Select(origin, self.Tracker.Known,
             function(model, source)
@@ -144,6 +150,45 @@ function AutoHuntController:ClosestDhab(origin)
     return best
 end
 
+function AutoHuntController:SelectNeighbor(direction)
+    local character=Players.LocalPlayer.Character
+    local root=character and character:FindFirstChild("HumanoidRootPart")
+    local seat=self.Vehicle and self.Vehicle.Seat
+    local origin=seat and seat.Position or (root and root.Position)
+    if not origin then return end
+    local options={}
+    for model,category in pairs(self.Tracker.Known) do
+        if category=="monster" and self.Tracker:IsDhab(model) then
+            local _,distance=self:ValidTarget(model,origin)
+            if distance then table.insert(options,{Model=model,Distance=distance}) end
+        end
+    end
+    table.sort(options,function(a,b)
+        return a.Distance<b.Distance
+    end)
+    if #options==0 then self:SetStatus("No eligible Dhab to lock") return end
+    local selected=self.LockedModel or self.Target
+    local index=direction>=0 and 0 or 1
+    for i,item in ipairs(options) do
+        if item.Model==selected then index=i break end
+    end
+    local nextIndex=((index-1+(direction>=0 and 1 or -1))%#options)+1
+    local chosen=options[nextIndex].Model
+    self:Reset()
+    self.Settings.HuntTargetLockEnabled=true
+    self.LockedModel=chosen
+    self.Target=chosen
+    if self.Aim then self.Aim:SetHuntTarget(chosen) end
+    self:SetStatus("Locked Dhab: "..chosen.Name)
+end
+
+function AutoHuntController:UnlockTarget()
+    self.LockedModel=nil
+    self.Settings.HuntTargetLockEnabled=false
+    self:Reset()
+    self:SetStatus("Target unlocked")
+end
+
 function AutoHuntController:ClearPath()
     self.Generation = self.Generation + 1
     self.Waypoints = nil
@@ -154,6 +199,7 @@ end
 
 function AutoHuntController:SkipUnreachable(reason)
     local model = self.Target
+    if self.LockedModel == model then self.LockedModel=nil end
     if self.Planner and model then self.Planner:Completed(model) end
     if model then
         self.Unreachable[model] = os.clock() + 35

@@ -12,6 +12,13 @@ local function human()
     local c=Players.LocalPlayer.Character
     return c and c:FindFirstChildOfClass("Humanoid")
 end
+local function profileKey(car)
+    for _,n in ipairs({"CarType","VehicleType","ModelName"}) do
+        local v=car:GetAttribute(n)
+        if type(v)=="string" and #v>0 and #v<=100 then return v end
+    end
+    return car.Name
+end
 local function flat(v)
     return Vector3.new(v.X,0,v.Z)
 end
@@ -25,6 +32,7 @@ function Car.new(settings,inputClass)
         Cruising=true, LastSpeedKmh=0, TargetSpeedKmh=120,
         NoResponse=false, NoResponseSince=nil, MotionConfirmed=false,
         LastPulseAt=0, UISRecognizesW=false, GearHint="not replicated",
+        Navigator=nil, ResolvedInputMode="Keyboard",
         LastGearCheck=0,
     },Car)
 end
@@ -184,7 +192,18 @@ function Car:Step()
         return
     end
     local seat=self.Seat
-    local delta=flat(self.Goal-seat.Position)
+    local waypoint=self.Goal
+    if self.Navigator then
+        waypoint=self.Navigator:Approach(
+            seat,self.Vehicle,self.Target,self.Goal)
+    end
+    if not waypoint then
+        self.Input:ReleaseAll()
+        self:Neutralize(seat)
+        self.LastStatus="Off-road: no verified safe approach"
+        return
+    end
+    local delta=flat(waypoint-seat.Position)
     local dist=delta.Magnitude
     local velocity=flat(seat.AssemblyLinearVelocity)
     local speed=velocity.Magnitude
@@ -203,9 +222,17 @@ function Car:Step()
     -- Leave room to decelerate as speed increases, instead of waiting
     -- until the car is already inside the animal's collision area.
     local buffer=math.clamp(speed*0.65+7,10,85)
+    local remaining=math.max(0,dist-stopDist-15)
+    local safeCruiseKmh=math.sqrt(2*12*remaining)*1.008
+    if not s.HuntCarCruiseEnabled then safeCruiseKmh=targetKmh end
     local keys={}
-    local mode=s.HuntCarInputMode or "Keyboard"
+    local mode=s.HuntCarInputMode or "Auto"
+    if mode=="Auto" then
+        local profiles=s.HuntCarProfiles or {}
+        mode=profiles[profileKey(self.Vehicle)] or "Keyboard"
+    end
     if mode~="Keyboard" and mode~="Seat" then mode="Keyboard" end
+    self.ResolvedInputMode=mode
 
     if dist<=stopDist+buffer then
         self.Cruising=false
@@ -225,7 +252,7 @@ function Car:Step()
             -- for sharp turns instead of cutting acceleration to 25%.
             local cornerFactor=math.clamp(
                 1-math.abs(angle)/math.pi*0.45,0.55,1)
-            local cruiseTarget=targetKmh*cornerFactor
+            local cruiseTarget=math.min(targetKmh*cornerFactor,safeCruiseKmh)
 
             -- 11 km/h hysteresis prevents rapid W press/release pulsing.
             if self.Cruising then
