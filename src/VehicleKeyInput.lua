@@ -25,6 +25,7 @@ function Input.new()
     return setmetatable({
         Held={}, Method=nil, Error=nil, Vim=nil,
         ChangedAt=os.clock(), Destroyed=false,
+        Pulses=0, SwitchedBackend=false,
     },Input)
 end
 
@@ -88,6 +89,51 @@ function Input:Set(keys)
             self.ChangedAt=os.clock()
         end
     end
+    return true
+end
+
+-- Some executor keypress implementations generate an event but do not
+-- maintain Roblox's down-state. Retry a fresh key-up/key-down pulse only
+-- after actual vehicle movement has failed; never pulse every render frame.
+function Input:Pulse(name)
+    if self.Destroyed or not CODES[name] or not self.Held[name] then
+        return false, "Cannot pulse an unheld key"
+    end
+    local released, releaseErr = self:Send(name,false)
+    self.Held[name]=nil
+    if not released then
+        self.Error="Key release failed: "..tostring(releaseErr)
+        self:ReleaseAll()
+        return false,self.Error
+    end
+    local pressed, pressErr = self:Send(name,true)
+    if not pressed then
+        self.Error="Key re-press failed: "..tostring(pressErr)
+        self:ReleaseAll()
+        return false,self.Error
+    end
+    self.Held[name]=true
+    self.Pulses=self.Pulses+1
+    return true
+end
+
+-- Escalate once to Roblox's virtual input service when the original
+-- executor press succeeds but the car has remained stationary.
+function Input:TryAlternate()
+    if self.SwitchedBackend or self.Destroyed then return false end
+    self.SwitchedBackend=true
+    if self.Method=="VirtualInputManager" then return false end
+    local ok,v=pcall(function()
+        return game:GetService("VirtualInputManager")
+    end)
+    if not ok or not v then
+        self.Error="Alternate VirtualInputManager unavailable"
+        return false
+    end
+    self:ReleaseAll()
+    self.Vim=v
+    self.Method="VirtualInputManager"
+    self.Error=nil
     return true
 end
 

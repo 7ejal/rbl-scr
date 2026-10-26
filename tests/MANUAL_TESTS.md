@@ -200,3 +200,16 @@
 - [ ] After short update lag (<2 sec) the controller does not unnecessarily release keys; disabling or F8 does release immediately.
 - [ ] With keyboard API missing or a custom km/h speedometer, status/diagnostics report limitations rather than claiming guaranteed 120 km/h.
 - [ ] Old ESP, Radar, Score, Quality, Auto Shoot and driver safety checks remain intact.
+
+
+## Zero-speed diagnostic regression (screen shows W held, game HUD 0 km/h)
+
+- [ ] A stationary car with valid target reports actual speed 0 km/h, not successful driving simply because `keypress` returned without an error.
+- [ ] While in a forward gear, after 2 seconds with W requested and 0 motion, held W receives periodic re-press probes (not every frame).
+- [ ] After 5 seconds with 0 movement it switches to VirtualInputManager once when available, and reports an error when not available.
+- [ ] After 9 seconds of commanded W and 0 movement it releases simulated keys and displays actionable no-response status; does not keep cycling Dhab.
+- [ ] Reverse unstick recovery never starts until some actual forward vehicle motion was observed.
+- [ ] Diagnostics displays actual measured speed, gear hint if replicated, requested W versus Roblox UIS W state, input pulses and fallback status.
+- [ ] Diagnostics page is scrollable (no Frame.ScrollBarThickness error); Retry button resets no-response lockout after the user manually selects Drive.
+- [ ] Manual keyboard W acceleration and actual HUD gear are confirmed in the game separately; don't assume 'N' definitely means transmission Neutral without inspecting that game's control system.
+- [ ] F8, seat exit, Hunt off and reload immediately release all simulated keys even during fallback attempts.

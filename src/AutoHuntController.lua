@@ -309,6 +309,14 @@ function AutoHuntController:Update()
         end
 
         self.Aim:SetHuntTarget(self.Target)
+        -- A synthetic keypress can return success without reaching the
+        -- game's chassis input reader. If no movement was detected, preserve
+        -- this diagnostic rather than endlessly skipping different Dhab.
+        if vehicle.NoResponse then
+            vehicle:Drive(seat, car, living, self.Target, location)
+            self:SetStatus(vehicle.LastStatus .. " | check Diagnostics")
+            return
+        end
         local stopDistance = math.clamp(
             self.Settings.HuntCarStopDistance or 48, 25, 125)
         if distance <= stopDistance then

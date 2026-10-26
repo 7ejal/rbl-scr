@@ -23,6 +23,9 @@ function Car.new(settings,inputClass)
         LastProgress=os.clock(), LastPos=nil, RecoveryUntil=0,
         Recoveries=0, Commands={}, UnreachableSignal=false,
         Cruising=true, LastSpeedKmh=0, TargetSpeedKmh=120,
+        NoResponse=false, NoResponseSince=nil, MotionConfirmed=false,
+        LastPulseAt=0, UISRecognizesW=false, GearHint="not replicated",
+        LastGearCheck=0,
     },Car)
 end
 function Car:FindCar(seat,h)
@@ -47,6 +50,34 @@ function Car:Neutralize(seat)
         pcall(function() seat.ThrottleFloat=0;seat.SteerFloat=0 end)
     end
 end
+local function gearValue(obj)
+    if not obj then return nil end
+    for _,name in ipairs({"CurrentGear","SelectedGear","Gear","GearPosition",
+        "TransmissionGear","TransmissionMode"}) do
+        local attribute=obj:GetAttribute(name)
+        if attribute~=nil then return name.."="..tostring(attribute) end
+        local value=obj:FindFirstChild(name,true)
+        if value and value:IsA("ValueBase") then
+            return name.."="..tostring(value.Value)
+        end
+    end
+    return nil
+end
+function Car:CheckGear()
+    self.GearHint=gearValue(self.Seat)
+        or gearValue(self.Vehicle) or "not replicated"
+end
+function Car:RetryInput()
+    self.Input:ReleaseAll()
+    self.NoResponse=false
+    self.NoResponseSince=nil
+    self.LastPulseAt=0
+    self.MotionConfirmed=false
+    self.Recoveries=0
+    self.RecoveryUntil=0
+    self.LastProgress=os.clock()
+    self.LastStatus="Retrying car input; check the gear is in Drive"
+end
 function Car:InputReleaseManual()
     self.Input:ReleaseAll()
     self:Neutralize(self.Seat)
@@ -58,6 +89,10 @@ function Car:Stop()
     self.Target=nil;self.Goal=nil;self.LastIntent=0
     self.Commands={};self.LastPos=nil
     self.Cruising=true
+    self.NoResponse=false
+    self.NoResponseSince=nil
+    self.MotionConfirmed=false
+    self.UISRecognizesW=false
     self.LastStatus="Vehicle stopped; controls released"
 end
 function Car:Drive(seat,model,h,target,goal)
@@ -70,6 +105,9 @@ function Car:Drive(seat,model,h,target,goal)
         self:Stop();self.Seat=seat
         self.LastProgress=os.clock();self.Recoveries=0
         self.Cruising=true
+        self.NoResponse=false
+        self.NoResponseSince=nil
+        self.GearHint="not replicated"
     end
     self.Vehicle=model;self.Humanoid=h
     self.Target=target;self.Goal=goal;self.LastIntent=os.clock()
@@ -153,6 +191,11 @@ function Car:Step()
     -- Roblox's nominal scale is 0.28 metres per stud, so a 120 km/h
     -- target corresponds to approximately 119 studs/second.
     local speedKmh=speed*0.28*3.6
+    local now=os.clock()
+    if now-self.LastGearCheck>1.2 then
+        self.LastGearCheck=now
+        self:CheckGear()
+    end
     local targetKmh=math.clamp(s.HuntCarTargetKmh or 120,30,180)
     self.LastSpeedKmh=speedKmh
     self.TargetSpeedKmh=targetKmh
@@ -206,6 +249,42 @@ function Car:Step()
         end
     end
 
+    -- Never interpret a successful pcall(keypress) as proof that the car
+    -- received the input. Observe real speed, try pulse and then alternate
+    -- backend once, and stop retrying if nothing moves.
+    self.UISRecognizesW=UIS:IsKeyDown(Enum.KeyCode.W)
+    if mode=="Keyboard" and keys.W then
+        if speedKmh>3 then
+            self.MotionConfirmed=true
+            self.NoResponseSince=nil
+            self.NoResponse=false
+        elseif not self.MotionConfirmed then
+            self.NoResponseSince=self.NoResponseSince or now
+            local elapsed=now-self.NoResponseSince
+            if elapsed>=9 then
+                self.NoResponse=true
+                self.Input:ReleaseAll()
+                self.LastStatus="No drive response (0 km/h); check gear N / Drive"
+                return
+            end
+        end
+    else
+        self.NoResponseSince=nil
+    end
+    if self.NoResponse then
+        self.Input:ReleaseAll()
+        self.LastStatus="Car not responding: shift into Drive; retry input"
+        return
+    end
+
+    -- Only perform reverse unstick maneuvers once the car has previously
+    -- demonstrated that the selected input backend can actually move it.
+    -- Never reverse a stationary car with an unknown gearbox state.
+    if not self.MotionConfirmed then
+        self.LastProgress=now
+        self.Recoveries=0
+        self.RecoveryUntil=0
+    end
     -- Stuck recovery applies only while we are actively trying to
     -- accelerate; an obstacle pause or coasting is not being stuck.
     if self.LastPos and flat(seat.Position-self.LastPos).Magnitude>=5 then
@@ -217,7 +296,7 @@ function Car:Step()
         self.LastProgress=os.clock()
     elseif not keys.W then
         self.LastProgress=os.clock()
-    elseif os.clock()-self.LastProgress>6 then
+    elseif self.MotionConfirmed and os.clock()-self.LastProgress>6 then
         self.LastProgress=os.clock()
         self.Recoveries=self.Recoveries+1
         if self.Recoveries>2 then
@@ -249,6 +328,24 @@ function Car:Step()
         if not ok then
             self.LastStatus="WASD unavailable: "..tostring(err)
             self.Input:ReleaseAll()
+        elseif keys.W and self.NoResponseSince
+            and not self.MotionConfirmed then
+            local elapsed=now-self.NoResponseSince
+            if elapsed>5 and not self.Input.SwitchedBackend then
+                local switched=self.Input:TryAlternate()
+                self.LastStatus=switched
+                    and "Trying alternate input; waiting for movement"
+                    or "No movement: input/gear check needed"
+            elseif elapsed>2 and now-self.LastPulseAt>=0.45 then
+                self.LastPulseAt=now
+                local pulseOk,pulseErr=self.Input:Pulse("W")
+                self.LastStatus=pulseOk
+                    and ("W re-press probe | %.1fs, 0 km/h"):format(elapsed)
+                    or ("Input pulse failed: "..tostring(pulseErr))
+            elseif elapsed>1 then
+                self.LastStatus=("W sent, no motion for %.1fs | Gear: %s")
+                    :format(elapsed,self.GearHint)
+            end
         end
     end
 end

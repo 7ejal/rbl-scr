@@ -135,6 +135,22 @@ function ESPController:Diagnostics()
         "Car status: " .. tostring(vehicle and vehicle.LastStatus or "not initialized"),
         "Key API: " .. tostring(vehicle and vehicle.Input.Method or "not probed"),
         "Key error: " .. tostring(vehicle and vehicle.Input.Error or "none"),
+        "Gear (replicated): " .. tostring(vehicle and vehicle.GearHint or "unknown"),
+        "Calculated speed: " .. tostring(vehicle
+            and math.floor(vehicle.LastSpeedKmh + 0.5) or "?") .. " km/h",
+        "W requested: " .. tostring(vehicle
+            and vehicle.Input:Holding("W") or false),
+        "W seen by Roblox UIS: " .. tostring(vehicle
+            and vehicle.UISRecognizesW or false),
+        "Vehicle movement confirmed: " .. tostring(vehicle
+            and vehicle.MotionConfirmed or false),
+        "W re-press probes: " .. tostring(vehicle
+            and vehicle.Input.Pulses or 0),
+        "Alternate backend tried: " .. tostring(vehicle
+            and vehicle.Input.SwitchedBackend or false),
+        "Vehicle unresponsive: " .. tostring(vehicle
+            and vehicle.NoResponse or false),
+        "HUD N may mean Neutral. Verify gear manually before retrying.",
         "Auto Shoot: " .. tostring(self.AutoShoot and self.AutoShoot.Status or "not initialized"),
         "Radar: " .. tostring(self.Settings.RadarEnabled),
         "Performance mode: " .. tostring(self.Settings.PerformanceMode),
@@ -294,6 +310,12 @@ function ESPController:Start()
     self.UI.OnMarkAvoidZone = function() self:MarkAvoidZone() end
     self.UI.OnClearAvoidZones = function() self:ClearAvoidZones() end
     self.UI.OnDiagnose = function()
+        self.UI:SetDiagnosticStatus(self:Diagnostics())
+    end
+    self.UI.OnRetryCarInput = function()
+        if self.Hunt and self.Hunt.Vehicle then
+            self.Hunt.Vehicle:RetryInput()
+        end
         self.UI:SetDiagnosticStatus(self:Diagnostics())
     end
     self.UI.OnStatsReset = function()

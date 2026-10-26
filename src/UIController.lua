@@ -198,6 +198,7 @@ function UIController.new(playerGui, settings, fov, janitorClass)
         end))
         local scrollable = name == "Auto Hunt" or name == "Auto Shoot"
             or name == "Advanced" or name == "Statistics"
+            or name == "Diagnostics"
         -- ScrollBarThickness/CanvasSize only exist on ScrollingFrame.
         -- Passing ScrollBarThickness = 0 to a regular Frame errors at load.
         local pageProps = {
@@ -212,7 +213,8 @@ function UIController.new(playerGui, settings, fov, janitorClass)
             pageProps.ScrollingDirection = Enum.ScrollingDirection.Y
             pageProps.CanvasSize = UDim2.fromOffset(0,
                 name == "Auto Hunt" and 1680
-                    or (name == "Advanced" and 1180 or 600))
+                    or (name == "Advanced" and 1180
+                    or (name == "Diagnostics" and 950 or 600)))
         end
         local page = create(scrollable and "ScrollingFrame" or "Frame",
             mainArea, pageProps)
@@ -777,9 +779,15 @@ function UIController.new(playerGui, settings, fov, janitorClass)
     self.Janitor:Add(diagStop.MouseButton1Click:Connect(function()
         if self.OnEmergencyStop then self.OnEmergencyStop() end
     end))
+    local retryCar=button(diagnostics,
+        "Retry car input after shifting into Drive",
+        0,49,385,40,COLOR.Row)
+    self.Janitor:Add(retryCar.MouseButton1Click:Connect(function()
+        if self.OnRetryCarInput then self.OnRetryCarInput() end
+    end))
     self.DiagnosticLabel=label(diagnostics,
-        "Press Refresh diagnostics to inspect vehicle keyboard API support.",
-        7,60,448,335,12)
+        "Press Refresh diagnostics to inspect the gear and keyboard input.",
+        7,105,448,670,12)
     self.DiagnosticLabel.TextWrapped=true
     self.DiagnosticLabel.TextTruncate=Enum.TextTruncate.None
     self.DiagnosticLabel.TextYAlignment=Enum.TextYAlignment.Top

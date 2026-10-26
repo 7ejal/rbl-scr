@@ -244,3 +244,19 @@ The original Xeno car controller could tap W briefly then stop because **keyboar
 - Older saved `HuntCarMaxSpeed` values are not loaded into the new `HuntCarTargetKmh` preference, to avoid restoring the previous too-low speed cap. The car target speed defaults to 120 km/h until the user explicitly saves a new km/h value.
 
 **To test:** Sit in your own driver seat → Auto Hunt → `Car input: Keyboard W/A/S/D` → `Vehicle speed target: 120 km/h` → enable Auto Hunt. Diagnostics / hunt status indicates `W held`, actual calculated km/h, obstruction, near-target coasting, or missing keyboard API. F8 is the emergency stop. Live Roblox/Xeno driving and the game's speedometer calibration remain **unverified**.
+
+
+## Diagnosing "W held | 0/120 km/h" (Screenshot, October 26, 2026)
+
+The real game HUD showed **0 km/h** while IVORY displayed **Keyboard | 0/120 km/h | W held** with a live Dhab 944 studs away. This means selection and keypress dispatch were active, but the vehicle did not actually accelerate. The game HUD also showed an **N** near **4H**, which may mean the transmission is in **Neutral**; this is only a visual clue, not a verified replicated gear value.
+
+Vehicle Auto Hunt now measures actual car motion rather than equating successful `keypress()` with successful driving:
+- After 2 seconds at zero speed with W requested, it probes a W key-up/key-down event every ~0.45 seconds in case the executor's initial keypress event was transient.
+- After 5 seconds without movement it **tries the alternate VirtualInputManager input backend once**, only if available.
+- After 9 seconds without movement it **releases all simulated keys** and displays `No drive response (0 km/h); check gear N / Drive` rather than endlessly pressing W, reversing blindly or skipping Dhab.
+- Unstick reversing is disabled until actual vehicle movement has previously been observed.
+- The Diagnostics page now scrolls and displays measured speed, any replicated gear hint, W requested state, whether Roblox UserInputService sees W, number of W re-press probes, backend fallback attempt and no-response flag.
+- To test: manually select a forward gear (if the HUD's N means Neutral), verify that **pressing physical W** accelerates your own car, then click **Diagnostics → Retry car input after shifting into Drive**. The script never guesses a shift key or changes the game's transmission itself.
+- F8 still releases all simulated W/A/S/D inputs immediately.
+
+If a physical W press works but input probing still reports no vehicle motion, the custom chassis may ignore Xeno's injected input completely. In that case, further implementation would require **verified** details of the car's local control scripts or the game's documented control APIs; the client cannot assume arbitrary remote endpoints or claim success. No live driving test was possible from GitHub alone.
