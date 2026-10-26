@@ -364,6 +364,7 @@ function UIController.new(playerGui, settings, fov, janitorClass)
         BackgroundColor3 = COLOR.Sidebar,
         BorderSizePixel = 0,
         ScrollBarThickness = 4,
+        AutomaticCanvasSize = Enum.AutomaticSize.Y,
         CanvasSize = UDim2.fromOffset(0, 208),
     })
     corner(reportScroll, 8)
@@ -720,10 +721,14 @@ end
 function UIController:SetQualityReport(report)
     if not self.QualityReport then return end
     self.QualityReport.Text = tostring(report):sub(1, 8000)
-    local height = self.QualityReport.TextBounds.Y
-    self.QualityReportScroll.CanvasSize = UDim2.fromOffset(
-        0, math.max(208, height + 24)
-    )
+    task.defer(function()
+        if self.QualityReport and self.QualityReport.Parent then
+            local height = self.QualityReport.TextBounds.Y
+            self.QualityReportScroll.CanvasSize = UDim2.fromOffset(
+                0, math.max(208, height + 24)
+            )
+        end
+    end)
 end
 
 function UIController:UpdateHomeCounts()

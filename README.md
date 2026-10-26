@@ -135,3 +135,5 @@ The in-game scan revealed \`Workspace.PlayersCars.DH_8638378195_SHAS_2025__2\` w
 **Crucial:** The scan identifies model paths but does not establish where quality is stored in the game. If a Dhab still shows \`Quality: Unknown\`, the client may not have the value. Inspect the report and—because you own the game—consider copying the authoritative server-side quality onto a replicated \`Quality\` model attribute in Roblox Studio. This is more reliable than guessing from client model names.
 
 Added: \`src/CarESP.lua\` (one ESP per whole car). Existing class-based features and HandCatch isolation remain intact.
+
+**Best guaranteed quality integration for your own game:** See [Server-side Dhab Quality Integration](docs/QUALITY_SERVER_INTEGRATION.md) for instructions to expose each animal's authoritative Quality attribute to the client, including thrown HandCatch copies. The inspector cannot recover server-only quality that was never replicated.
