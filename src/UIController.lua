@@ -197,16 +197,23 @@ function UIController.new(playerGui, settings, fov, janitorClass)
             self:ShowPage(name)
         end))
         local scrollable = name == "Auto Hunt" or name == "Auto Shoot"
-        local page = create(scrollable and "ScrollingFrame" or "Frame", mainArea, {
+        -- ScrollBarThickness/CanvasSize only exist on ScrollingFrame.
+        -- Passing ScrollBarThickness = 0 to a regular Frame errors at load.
+        local pageProps = {
             Name = name .. "Page",
             Size = UDim2.fromScale(1, 1),
             BackgroundTransparency = 1,
             BorderSizePixel = 0,
-            ScrollBarThickness = scrollable and 4 or 0,
-            CanvasSize = scrollable and UDim2.fromOffset(0,
-                name == "Auto Hunt" and 1130 or 560) or nil,
             Visible = false,
-        })
+        }
+        if scrollable then
+            pageProps.ScrollBarThickness = 4
+            pageProps.ScrollingDirection = Enum.ScrollingDirection.Y
+            pageProps.CanvasSize = UDim2.fromOffset(0,
+                name == "Auto Hunt" and 1130 or 560)
+        end
+        local page = create(scrollable and "ScrollingFrame" or "Frame",
+            mainArea, pageProps)
         self.Pages[name] = page
     end
 

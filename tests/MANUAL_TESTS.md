@@ -143,3 +143,12 @@
 - [ ] Turning opt-in OFF writes disabled marker, and corrupted/missing JSON gracefully restores defaults.
 - [ ] Unsupported file APIs still allow all features without persistence, while reporting storage unavailability.
 - [ ] Other ESP, Cars, HandCatch, Quality and Anti Fog unaffected; reload/stop disconnects all new loops.
+
+## Dashboard startup regression: ScrollBarThickness on Frame
+
+- [ ] Run the feature loader in Xeno after the 13-tab sidebar update; it shows IVORY ESP - Loaded, not a Frame.ScrollBarThickness error.
+- [ ] HomePage and every non-scrollable page are Frame objects with no ScrollBarThickness/CanvasSize assignment.
+- [ ] Auto Hunt and Auto Shoot are ScrollingFrame objects with scrollbars and their controls remain reachable.
+- [ ] Sidebar is independently scrollable; Radar, Statistics, and Settings tabs remain accessible.
+- [ ] Re-executing the loader does not leave duplicate GUI objects or listeners.
+
