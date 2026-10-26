@@ -2,7 +2,7 @@
 local MonsterESP = {}
 MonsterESP.__index = MonsterESP
 
-function MonsterESP.new(instance, parent, classes, settings, category)
+function MonsterESP.new(instance, parent, classes, settings, category, isDhab)
     local box = classes.BoxESP.new(parent)
     return setmetatable({
         Model = instance,
@@ -14,6 +14,8 @@ function MonsterESP.new(instance, parent, classes, settings, category)
         Health = classes.HealthESP.new(box.Frame),
         Highlight = classes.HighlightESP.new(),
         Projection = classes.Projection,
+        IsDhab = isDhab == true,
+        Quality = classes.QualityESP.new(box, instance, classes.QualityResolver),
     }, MonsterESP)
 end
 
@@ -81,6 +83,7 @@ function MonsterESP:Update(camera, localRoot)
     self.Distance:Update(distance,
         isMonster and self.Settings.MonsterDistance
             or (not isMonster and self.Settings.ShowDistance))
+    self.Quality:Update(self.IsDhab and self.Settings.DhabQualityEnabled)
 
     local showHealth = isMonster and self.Settings.MonsterHealth
         or (not isMonster and self.Settings.ShowHealth)

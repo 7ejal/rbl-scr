@@ -30,6 +30,15 @@ return {
     MonsterModelNames = {},
     -- Real game scan: Workspace.DhabWild.Dhab_fa1f92
     WildlifeFolderName = "DhabWild",
+    HandCatchFolderName = "DhabHandCatches",
+    DhabQualityEnabled = true,
+
+    HandCatchEnabled = true,
+    HandCatchBoxes = true,
+    HandCatchNames = true,
+    HandCatchDistance = true,
+    HandCatchHighlights = true,
+    HandCatchQuality = true,
 
     -- Camera-only monster aim. Never automatically fires a weapon.
     AimEnabled = false,

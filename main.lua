@@ -158,6 +158,7 @@ local ok, response = pcall(function()
         "Janitor", "Projection", "BoxESP", "NameESP", "DistanceESP",
         "HealthESP", "HighlightESP", "PlayerESP", "PlayerTracker",
         "MonsterESP", "MonsterTracker", "MonsterInspector",
+        "QualityResolver", "QualityESP", "HandCatchESP",
         "AimController", "FOVController", "UIController",
         "KeybindController", "ESPController",
     }

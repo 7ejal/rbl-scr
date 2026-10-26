@@ -11,15 +11,17 @@ Class-based, modular client-side ESP with a dark dashboard inspired by the provi
 - Player boxes, names, health bars, distance labels and through-wall highlights (player ESP is OFF by default).
 - Separate `Other NPC ESP` toggle (OFF by default): traders/vendors are not included in monster ESP.
 - Monster discovery uses hostile tags/names/attributes or user-registered model names; friendly NPC Humanoids are no longer automatically classified as monsters.
+- Thrown HandCatch models (e.g. `Workspace.DhabHandCatches.HandCatch_6d67eea5cb324ca780fff2c0e7e6ec5d`) have independent blue ESP in a dedicated **HandCatch** tab. Thrown HandCatch can never be chosen by auto-aim.
+- Each live Dhab displays a quality label above its model name; HandCatch can also show available captured-creature quality. The per-instance quality reader tries model/descendant attributes, StringValue/NumberValue/IntValue fields and explicitly labeled quality text. Missing replicated values are shown as `Quality: Unknown` rather than invented.
 - `Targets` tab lets you select a real nearby model (including custom creatures) and track/untrack its name. Registered names survive loader re-execution in the current executor session.
 - Detection distance defaults to 1200 studs and changes in 100-stud steps.
-- `Auto Aim` tab has a monster-only camera aim toggle (OFF by default), optional right-mouse hold, FOV circle, adjustable FOV radius, target distance and smoothing. Does not fire weapons or send attack events.
+- `Auto Aim` only rotates the camera toward **live DhabWild Models** (not discarded HandCatch, traders, plots, or other monsters). The tab has an aim toggle (OFF by default), optional right-mouse hold, FOV circle, adjustable FOV radius, target distance and smoothing. Does not fire weapons or send attack events.
 - Camera FOV slider (40 to 120 degrees) under Settings.
 - **I** toggles all ESP overlays while keeping the dashboard, FOV, and independently controlled auto-aim available.
 - **Right Ctrl** hides/shows the large dashboard (the aim circle continues to display). You can also click the HIDE [CTRL] button in the header.
 - **M** marks the target model under the cursor as a monster (same model name for all instances); alternatively use Targets > TRACK.
 - **P** inspects the creature at your cursor. If you hit Terrain or another obstacle, it tries a raycast excluding Terrain and checks recognized NPCs near your cursor.
-- **O** lists nearby recognized and unclassified Workspace models with names and full paths (25 max per group); also available via the Find models dashboard button. Diagnostics print to F9 and copy to clipboard if supported.
+- **O** lists nearby recognized Dhab creatures, thrown HandCatch, and unclassified Workspace models with names and paths (25 max per group); also available via the Find models dashboard button. Diagnostics print to F9 and copy to clipboard if supported.
 - One 30 Hz render coordinator, cleanup on re-execution.
 
 ## In-game load notifications and troubleshooting
@@ -84,7 +86,10 @@ The inspector cannot see server-only instances or unreplicated/streamed-out mode
 | src/ESPController.lua | App lifecycle, unified render coordinator |
 | src/PlayerTracker.lua | Player join/leave |
 | src/PlayerESP.lua | Composes player visuals |
-| src/MonsterTracker.lua | Monster/other-NPC classification and manual registration |
+| src/MonsterTracker.lua | DhabWild / DhabHandCatches / other NPC classification, manual registration |
+| src/HandCatchESP.lua | Independent overlay for thrown HandCatch (blue; never aim) |
+| src/QualityResolver.lua | Per-instance replicated quality source lookup; unknown fallback |
+| src/QualityESP.lua | Dhab / HandCatch quality label |
 | src/MonsterESP.lua | Composes monster visuals |
 | src/MonsterInspector.lua | Inspect hovered monster (P), scan nearby (O), register (M) |
 | src/AimController.lua | Monster-only camera targeting and FOV circle |
@@ -109,6 +114,8 @@ Each behavior has its own class-like module. Edit a module without re-copying th
 - Monsters without health data won't show health bars.
 - In some games, NPCs may be friendly rather than hostile; generic matching cannot tell them apart.
 - Client streaming/replication determines what the script can inspect.
-- Monster auto aim rotates the local camera only; it does not modify weapon hits, attack accuracy, or server behavior. Aim target selection requires a recognized or user-registered monster.
+- Auto aim rotates the local camera only; it does not modify weapon hits, attack accuracy or server behavior. Targets MUST be live Dhab models inside `Workspace.DhabWild`; no HandCatch can ever be targeted.
+- Quality and rarity aren't equivalent. The label reflects the actual field name when `Rarity` or `Grade` is found. If no per-model quality metadata is available to the client, the script displays `Quality: Unknown`. Press P to inspect the exact object and its replicated attributes for diagnosis.
 - Target names added through the GUI or M are remembered only in the current client session; for persistence across Roblox launches, copy exact names into `config.lua`.
 - The script is untested in a live Xeno/Roblox runtime; follow tests/MANUAL_TESTS.md.
+- Automatic HandCatch detection requires the object to be replicated under `Workspace.DhabHandCatches`. If your thrown object is stored elsewhere, inspect its path (P/O) and change `HandCatchFolderName` in `config.lua`.

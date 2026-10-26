@@ -36,9 +36,17 @@ end
 
 function ESPController:AddMonster(model, category)
     if self.Monsters[model] then return end
-    self.Monsters[model] = self.Classes.MonsterESP.new(
-        model, self.UI.Gui, self.Classes, self.Settings, category
-    )
+    if category == "handcatch" then
+        self.Monsters[model] = self.Classes.HandCatchESP.new(
+            model, self.UI.Gui, self.Classes, self.Settings
+        )
+        self.Monsters[model].Category = "handcatch"
+    else
+        self.Monsters[model] = self.Classes.MonsterESP.new(
+            model, self.UI.Gui, self.Classes, self.Settings,
+            category, self.MonsterTracker:IsDhab(model)
+        )
+    end
     self:UpdateMonsterCount()
 end
 
@@ -51,11 +59,18 @@ function ESPController:RemoveMonster(model)
 end
 
 function ESPController:UpdateMonsterCount()
-    local count = 0
+    local count, handCount = 0, 0
     for _, record in pairs(self.Monsters) do
-        if record.Category == "monster" then count = count + 1 end
+        if record.Category == "monster" then
+            count = count + 1
+        elseif record.Category == "handcatch" then
+            handCount = handCount + 1
+        end
     end
-    if self.UI then self.UI:SetMonsterCount(count) end
+    if self.UI then
+        self.UI:SetMonsterCount(count)
+        self.UI:SetHandCatchCount(handCount)
+    end
 end
 
 function ESPController:RescanMonsters()
@@ -90,6 +105,10 @@ function ESPController:SetSetting(key, value)
     elseif key == "OtherNPCEnabled" and not value then
         for _, record in pairs(self.Monsters) do
             if record.Category == "other" then record:Hide() end
+        end
+    elseif key == "HandCatchEnabled" and not value then
+        for _, record in pairs(self.Monsters) do
+            if record.Category == "handcatch" then record:Hide() end
         end
     end
     if self.UI then self.UI:Refresh() end
@@ -148,7 +167,8 @@ function ESPController:Start()
         self.Settings.InspectorKey,
         self.Settings.InspectorScanKey,
         self.MonsterTracker,
-        self.Settings.MarkMonsterKey
+        self.Settings.MarkMonsterKey,
+        self.Classes.QualityResolver
     )
     self.Inspector.OnMarked = function()
         self:UpdateMonsterCount()
@@ -209,6 +229,7 @@ function ESPController:Start()
             local category = self.MonsterTracker.Known[model]
             local visible = category == "monster" and self.Settings.MonsterEnabled
                 or (category == "other" and self.Settings.OtherNPCEnabled)
+                or (category == "handcatch" and self.Settings.HandCatchEnabled)
             if visible then
                 local ok = pcall(record.Update, record, camera, localRoot)
                 if not ok then record:Hide() end

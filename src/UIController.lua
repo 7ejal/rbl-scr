@@ -79,6 +79,7 @@ function UIController.new(playerGui, settings, fov, janitorClass)
         OnTrackMonster = nil,
         ShowScenery = false,
         MonsterCount = 0,
+        HandCatchCount = 0,
         ActivePage = "ESP",
         DraggingFOV = false,
         DraggingWindow = false,
@@ -180,7 +181,7 @@ function UIController.new(playerGui, settings, fov, janitorClass)
         BackgroundTransparency = 1,
     })
 
-    local tabs = {"Home", "ESP", "Auto Aim", "Monsters", "Targets", "Settings"}
+    local tabs = {"Home", "ESP", "Auto Aim", "Monsters", "HandCatch", "Targets", "Settings"}
     for index, name in ipairs(tabs) do
         local tab = button(sidebar, name, 10, 10 + (index - 1) * 53, 161, 44, COLOR.Sidebar)
         self.Tabs[name] = tab
@@ -294,12 +295,32 @@ function UIController.new(playerGui, settings, fov, janitorClass)
         if self.OnRescan then self.OnRescan() end
     end))
 
-    -- Aim tab: the camera rotates toward a detected monster, never toward players.
+    -- HandCatch objects remain visible after they are thrown on terrain.
+    -- They are classified separately and are never eligible for auto aim.
+    local catches = self.Pages.HandCatch
+    self:ToggleRow(catches, "Thrown HandCatch ESP", "HandCatchEnabled", 0)
+    self:ToggleRow(catches, "HandCatch boxes", "HandCatchBoxes", 50)
+    self:ToggleRow(catches, "HandCatch names", "HandCatchNames", 100)
+    self:ToggleRow(catches, "HandCatch distance", "HandCatchDistance", 150)
+    self:ToggleRow(catches, "HandCatch highlights", "HandCatchHighlights", 200)
+    self:ToggleRow(catches, "HandCatch quality label", "HandCatchQuality", 250)
+    self:ToggleRow(catches, "Live Dhab quality label", "DhabQualityEnabled", 300)
+    local catchPanel = create("Frame", catches, {
+        Position = UDim2.fromOffset(0, 356),
+        Size = UDim2.fromOffset(461, 56),
+        BackgroundColor3 = COLOR.Sidebar,
+        BorderSizePixel = 0,
+    })
+    corner(catchPanel, 8)
+    self.HandCatchCountLabel = label(catchPanel,
+        "Thrown HandCatch detected: 0", 15, 3, 430, 48, 13)
+
+    -- Aim tab: the camera rotates toward a live Dhab only.
     local aim = self.Pages["Auto Aim"]
-    self:ToggleRow(aim, "Monster auto aim (camera only)", "AimEnabled", 0)
+    self:ToggleRow(aim, "Live Dhab auto aim (camera only)", "AimEnabled", 0)
     self:ToggleRow(aim, "Require right mouse button", "AimHoldRightMouse", 50)
     self:ToggleRow(aim, "Show targeting FOV circle", "AimShowCircle", 100)
-    local note = label(aim, "Target filter: registered and recognized monsters only", 10, 150, 445, 26, 12)
+    local note = label(aim, "Live DhabWild creatures only. HandCatch is excluded.", 10, 150, 445, 26, 12)
     note.TextColor3 = COLOR.Muted
 
     local function counterPanel(y, heading, key, amount, low, high, unit, digits)
@@ -561,11 +582,24 @@ function UIController:SetESPEnabled(enabled)
     self:Refresh()
 end
 
+function UIController:UpdateHomeCounts()
+    self.HomeStatus.Text = "Live creatures: " .. tostring(self.MonsterCount)
+        .. "   |   Thrown HandCatch: " .. tostring(self.HandCatchCount)
+end
+
 function UIController:SetMonsterCount(count)
     self.MonsterCount = count
-    local message = "Detected monsters: " .. tostring(count)
-    self.MonsterCountLabel.Text = message
-    self.HomeStatus.Text = message
+    self.MonsterCountLabel.Text = "Detected monsters: " .. tostring(count)
+    self:UpdateHomeCounts()
+end
+
+function UIController:SetHandCatchCount(count)
+    self.HandCatchCount = count
+    if self.HandCatchCountLabel then
+        self.HandCatchCountLabel.Text =
+            "Thrown HandCatch detected: " .. tostring(count)
+    end
+    self:UpdateHomeCounts()
 end
 
 function UIController:UpdateFOVFromX(x)

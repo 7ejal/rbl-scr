@@ -58,10 +58,11 @@ function Tracker.new(onAdd, onRemove, settings)
         OnAdd = onAdd,
         OnRemove = onRemove,
         Settings = settings,
-        Known = {}, -- Instance -> "monster" or "other"
+        Known = {}, -- Instance -> monster, handcatch, or other
         Connections = {},
         Started = false,
         WildlifeRoot = nil,
+        HandCatchRoot = nil,
     }, Tracker)
 end
 
@@ -76,6 +77,24 @@ function Tracker:Classify(instance)
 
     -- In this game DhabWild is a wildlife source, as shown by the scan.
     -- Highlight whole creature models, never repeated nested model/rig parts.
+    -- HandCatch is explicitly never a live Dhab or aim target.
+    -- It has its own ESP category so discarded throws remain visible.
+    local handCatchRoot = self.HandCatchRoot
+    if handCatchRoot and instance ~= handCatchRoot
+        and instance:IsDescendantOf(handCatchRoot) then
+        local ancestor = instance.Parent
+        while ancestor and ancestor ~= handCatchRoot do
+            if ancestor:IsA("Model") then return nil end
+            ancestor = ancestor.Parent
+        end
+        if isModel then
+            return instance:FindFirstChildWhichIsA("BasePart", true)
+                and "handcatch" or nil
+        end
+        if isPart then return "handcatch" end
+        return nil
+    end
+
     local wildlifeRoot = self.WildlifeRoot
     if wildlifeRoot and instance ~= wildlifeRoot
         and instance:IsDescendantOf(wildlifeRoot) then
@@ -145,6 +164,18 @@ function Tracker:IsMonster(instance)
     return self:Classify(instance) == "monster"
 end
 
+function Tracker:IsHandCatch(instance)
+    return self:Classify(instance) == "handcatch"
+end
+
+function Tracker:IsDhab(instance)
+    local wildlifeRoot = self.WildlifeRoot
+    return wildlifeRoot ~= nil and instance ~= wildlifeRoot
+        and instance:IsA("Model")
+        and instance:IsDescendantOf(wildlifeRoot)
+        and self:Classify(instance) == "monster"
+end
+
 function Tracker:Check(instance)
     local category = self:Classify(instance)
     local previous = self.Known[instance]
@@ -173,12 +204,23 @@ function Tracker:Scan()
         self.WildlifeRoot = workspace:FindFirstChild(
             self.Settings.WildlifeFolderName or "DhabWild"
         )
+        self.HandCatchRoot = workspace:FindFirstChild(
+            self.Settings.HandCatchFolderName or "DhabHandCatches"
+        )
 
         -- Recognize creatures before traversing thousands of unrelated models.
         if self.WildlifeRoot then
             for _, wildInstance in ipairs(self.WildlifeRoot:GetDescendants()) do
                 if wildInstance:IsA("Model") or wildInstance:IsA("BasePart") then
                     self:Check(wildInstance)
+                end
+            end
+        end
+
+        if self.HandCatchRoot then
+            for _, caught in ipairs(self.HandCatchRoot:GetDescendants()) do
+                if caught:IsA("Model") or caught:IsA("BasePart") then
+                    self:Check(caught)
                 end
             end
         end
@@ -198,6 +240,8 @@ function Tracker:Scan()
                 if registered or containsAny(instance.Name, MONSTER_TERMS)
                     or (self.WildlifeRoot
                         and instance:IsDescendantOf(self.WildlifeRoot))
+                    or (self.HandCatchRoot
+                        and instance:IsDescendantOf(self.HandCatchRoot))
                     or next(instance:GetAttributes()) ~= nil
                     or #Tags:GetTags(instance) > 0 then
                     seen[instance] = true
@@ -277,8 +321,10 @@ function Tracker:GetChoices(maxResults, includeScenery)
     end
     table.sort(choices, function(a, b)
         if a.Registered ~= b.Registered then return a.Registered end
-        if a.Category == "monster" and b.Category ~= "monster" then return true end
-        if a.Category ~= "monster" and b.Category == "monster" then return false end
+        local priority = {monster = 1, handcatch = 2, other = 3, unknown = 4}
+        if priority[a.Category] ~= priority[b.Category] then
+            return priority[a.Category] < priority[b.Category]
+        end
         return a.Distance < b.Distance
     end)
     while #choices > (maxResults or 30) do table.remove(choices) end
@@ -291,13 +337,23 @@ function Tracker:Start()
     self.WildlifeRoot = workspace:FindFirstChild(
         self.Settings.WildlifeFolderName or "DhabWild"
     )
+    self.HandCatchRoot = workspace:FindFirstChild(
+        self.Settings.HandCatchFolderName or "DhabHandCatches"
+    )
     table.insert(self.Connections, workspace.DescendantAdded:Connect(function(instance)
-        if instance.Name == (self.Settings.WildlifeFolderName or "DhabWild")
-            and instance.Parent == workspace then
-            self.WildlifeRoot = instance
-            task.defer(function()
-                if self.Started then self:Scan() end
-            end)
+        if instance.Parent == workspace then
+            if instance.Name == (self.Settings.WildlifeFolderName or "DhabWild") then
+                self.WildlifeRoot = instance
+                task.defer(function()
+                    if self.Started then self:Scan() end
+                end)
+            elseif instance.Name == (self.Settings.HandCatchFolderName
+                or "DhabHandCatches") then
+                self.HandCatchRoot = instance
+                task.defer(function()
+                    if self.Started then self:Scan() end
+                end)
+            end
         end
         if instance:IsA("Model") then
             self:Check(instance)
@@ -305,6 +361,8 @@ function Tracker:Start()
             if containsAny(instance.Name, MONSTER_TERMS) or
                 (self.WildlifeRoot
                     and instance:IsDescendantOf(self.WildlifeRoot)) or
+                (self.HandCatchRoot
+                    and instance:IsDescendantOf(self.HandCatchRoot)) or
                 next(instance:GetAttributes()) ~= nil or
                 #Tags:GetTags(instance) > 0 then
                 self:Check(instance)

@@ -58,7 +58,10 @@ function AimController:BestTarget(camera)
     local bestScore = math.huge
 
     for target, category in pairs(self.Tracker.Known) do
-        if category == "monster" and target:IsDescendantOf(workspace) then
+        -- Strict allowlist: live Dhab models only. HandCatch objects,
+        -- vendor NPCs and other generic monsters must never be aim targets.
+        if category == "monster" and self.Tracker:IsDhab(target)
+            and target:IsDescendantOf(workspace) then
             local humanoid = target:FindFirstChildOfClass("Humanoid")
             local health = target:GetAttribute("Health")
             local alive = (not humanoid or humanoid.Health > 0)

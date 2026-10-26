@@ -9,6 +9,16 @@
 - [ ] Player ESP and other-Nonmonster NPC ESP default OFF. Turn either ON and verify independently controlled overlays.
 - [ ] Toggle individual player boxes, names, health, and wall highlights; verify behavior.
 - [ ] With Workspace.DhabWild.Dhab_fa1f92 replicated, Monster ESP recognizes it; display count increases above zero.
+- [ ] With Workspace.DhabHandCatches.HandCatch_6d67eea5cb324ca780fff2c0e7e6ec5d replicated, HandCatch tab shows an independent blue ESP and count.
+- [ ] Throw a HandCatch onto terrain; it remains labeled and highlighted while replicated, without creating player/plot ESP.
+- [ ] Turn off HandCatch ESP while Monster ESP remains on, and vice versa.
+- [ ] HandCatch category shows separately under the O-key inspector report.
+- [ ] Dhab quality label shows the actual per-instance Quality value where replicated; missing data shows Quality: Unknown (never fabricated).
+- [ ] Test quality present as an attribute, as a nested StringValue/NumberValue, and as a clearly labeled TextLabel; verify value updates within one second.
+- [ ] If quality source is Rarity or Grade, label its actual type, not an assumed percentage.
+- [ ] Enable Auto Aim while both a live Dhab and thrown HandCatch are visible. The camera locks only to the live Dhab, never the thrown HandCatch.
+- [ ] If there are only HandCatch objects but no live Dhab, auto aim does not move the camera.
+- [ ] Verify right mouse requirement, aim radius and distance settings still work.
 - [ ] Do not create ESP duplicates for child rig models/parts, or for DhabWild container itself.
 - [ ] Cars in Workspace.PlayersCars, plots and vendors remain excluded from Monster ESP.
 - [ ] Press O and check the DhabWild creature now appears in RECOGNIZED MONSTERS, not buried in scenery.
