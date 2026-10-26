@@ -28,6 +28,8 @@ return {
 
     -- Add your exact model names here or mark them through the Targets tab / M.
     MonsterModelNames = {},
+    -- Real game scan: Workspace.DhabWild.Dhab_fa1f92
+    WildlifeFolderName = "DhabWild",
 
     -- Camera-only monster aim. Never automatically fires a weapon.
     AimEnabled = false,

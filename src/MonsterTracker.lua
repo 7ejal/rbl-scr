@@ -61,6 +61,7 @@ function Tracker.new(onAdd, onRemove, settings)
         Known = {}, -- Instance -> "monster" or "other"
         Connections = {},
         Started = false,
+        WildlifeRoot = nil,
     }, Tracker)
 end
 
@@ -72,6 +73,24 @@ function Tracker:Classify(instance)
     local isModel = instance:IsA("Model")
     local isPart = instance:IsA("BasePart")
     if not isModel and not isPart then return nil end
+
+    -- In this game DhabWild is a wildlife source, as shown by the scan.
+    -- Highlight whole creature models, never repeated nested model/rig parts.
+    local wildlifeRoot = self.WildlifeRoot
+    if wildlifeRoot and instance ~= wildlifeRoot
+        and instance:IsDescendantOf(wildlifeRoot) then
+        local parent = instance.Parent
+        while parent and parent ~= wildlifeRoot do
+            if parent:IsA("Model") then return nil end
+            parent = parent.Parent
+        end
+        if isModel then
+            return instance:FindFirstChildWhichIsA("BasePart", true)
+                and "monster" or nil
+        end
+        if isPart then return "monster" end
+        return nil
+    end
 
     if isPart then
         -- Only independently named/tagged BaseParts can be targets, not rig body parts.
@@ -151,6 +170,19 @@ function Tracker:Scan()
     self.Scanning = true
     repeat
         self.RescanRequested = false
+        self.WildlifeRoot = workspace:FindFirstChild(
+            self.Settings.WildlifeFolderName or "DhabWild"
+        )
+
+        -- Recognize creatures before traversing thousands of unrelated models.
+        if self.WildlifeRoot then
+            for _, wildInstance in ipairs(self.WildlifeRoot:GetDescendants()) do
+                if wildInstance:IsA("Model") or wildInstance:IsA("BasePart") then
+                    self:Check(wildInstance)
+                end
+            end
+        end
+
         local seen = {}
         local instances = workspace:GetDescendants()
         for index, instance in ipairs(instances) do
@@ -164,6 +196,8 @@ function Tracker:Scan()
                 local registered = self.Settings.MonsterModelNames[
                     string.lower(instance.Name)] == true
                 if registered or containsAny(instance.Name, MONSTER_TERMS)
+                    or (self.WildlifeRoot
+                        and instance:IsDescendantOf(self.WildlifeRoot))
                     or next(instance:GetAttributes()) ~= nil
                     or #Tags:GetTags(instance) > 0 then
                     seen[instance] = true
@@ -254,11 +288,23 @@ end
 function Tracker:Start()
     if self.Started then return end
     self.Started = true
+    self.WildlifeRoot = workspace:FindFirstChild(
+        self.Settings.WildlifeFolderName or "DhabWild"
+    )
     table.insert(self.Connections, workspace.DescendantAdded:Connect(function(instance)
+        if instance.Name == (self.Settings.WildlifeFolderName or "DhabWild")
+            and instance.Parent == workspace then
+            self.WildlifeRoot = instance
+            task.defer(function()
+                if self.Started then self:Scan() end
+            end)
+        end
         if instance:IsA("Model") then
             self:Check(instance)
         elseif instance:IsA("BasePart") then
             if containsAny(instance.Name, MONSTER_TERMS) or
+                (self.WildlifeRoot
+                    and instance:IsDescendantOf(self.WildlifeRoot)) or
                 next(instance:GetAttributes()) ~= nil or
                 #Tags:GetTags(instance) > 0 then
                 self:Check(instance)

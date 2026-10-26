@@ -92,7 +92,7 @@ function MonsterInspector:NearestModels()
                         Position = position,
                         Distance = distance,
                     }
-                    if self:IsCandidate(instance) then
+                    if self.Tracker:IsMonster(instance) then
                         table.insert(strong, entry)
                     else
                         table.insert(unknown, entry)
@@ -256,12 +256,12 @@ function MonsterInspector:BuildList(strong, unknown, reason)
     local lines = {
         "=== IVORY NEARBY MODEL SCAN ===",
         reason or "Nearby replicated Workspace models",
-        "Recognized NPC candidates: " .. tostring(#strong),
+        "Recognized monster models: " .. tostring(#strong),
         "Other nearby models: " .. tostring(#unknown),
         "Radius: " .. tostring(SCAN_RADIUS) .. " studs",
         "Only the first " .. tostring(MAX_LIST) .. " models from each group are listed.",
         "",
-        "LIKELY NPCS:",
+        "RECOGNIZED MONSTERS:",
     }
 
     if #strong == 0 then table.insert(lines, "  none detected") end
@@ -272,7 +272,7 @@ function MonsterInspector:BuildList(strong, unknown, reason)
     end
 
     table.insert(lines, "")
-    table.insert(lines, "OTHER MODELS (may include scenery):")
+    table.insert(lines, "OTHER MODELS (NPCs or scenery):")
     if #unknown == 0 then table.insert(lines, "  none in range") end
     for index = 1, math.min(#unknown, MAX_LIST) do
         local item = unknown[index]
@@ -281,6 +281,7 @@ function MonsterInspector:BuildList(strong, unknown, reason)
     end
 
     table.insert(lines, "")
+    table.insert(lines, "Wildlife source: Workspace.DhabWild (when present).")
     table.insert(lines, "Point at a monster and press P for full attributes/tags.")
     table.insert(lines, "Close the F9 console before aiming.")
     table.insert(lines, "Server-only and streamed-out models cannot be inspected.")

@@ -67,6 +67,8 @@ Calling getgenv().IvoryESP_Stop() removes overlays, UI and listeners, and restor
 
 ## Monster identification
 
+The in-game scan revealed a creature model `Workspace.DhabWild.Dhab_fa1f92` about 121 studs away, which the earlier tracker missed. `WildlifeFolderName = "DhabWild"` now matches individual wildlife models or loose parts from that specific source. Nested rig parts, cars, plot scenery and the root container are excluded. This identifies wildlife, **not necessarily hostile monsters**.
+
 MonsterTracker separates `monster` and `other` categories. A Humanoid alone does **not** mean monster, because this game includes many merchant NPCs. Plots and common vendor/scenery names are excluded from monster matching. It recognizes common hostile names, tags and attributes, along with registered exact model names. It scans at startup, on creation and every 10 seconds. Custom creatures can be manually registered through the Targets tab or M key.
 
 **Monster IDs are not guaranteed numeric.** Close F9 to aim, then point at an in-game monster and press **P**. If the output only says Terrain or cannot identify the model, press **O** or click Find models, then open F9 and share the nearby-model list. Pressing P or O will copy the report if your executor supports clipboard access. Share the inspector result to add precise per-game monster targeting, e.g., tiers T5/T6. An unclassified model can be scenery, not a confirmed monster.

@@ -8,7 +8,11 @@
 - [ ] Header FPS and ping labels update after a second.
 - [ ] Player ESP and other-Nonmonster NPC ESP default OFF. Turn either ON and verify independently controlled overlays.
 - [ ] Toggle individual player boxes, names, health, and wall highlights; verify behavior.
-- [ ] Move to Monsters. Only hostile-marked/name-matched monsters are detected automatically. Shopkeepers and plots no longer show monster outlines.
+- [ ] With Workspace.DhabWild.Dhab_fa1f92 replicated, Monster ESP recognizes it; display count increases above zero.
+- [ ] Do not create ESP duplicates for child rig models/parts, or for DhabWild container itself.
+- [ ] Cars in Workspace.PlayersCars, plots and vendors remain excluded from Monster ESP.
+- [ ] Press O and check the DhabWild creature now appears in RECOGNIZED MONSTERS, not buried in scenery.
+- [ ] Move to Monsters. Hostile-marked/name-matched models and DhabWild creatures are recognized; shopkeepers and plots do not show monster outlines.
 - [ ] Targets > Show scenery lists nearby models. TRACK an unrecognized monster by exact name; verify monster ESP appears. UNTRACK removes its forced classification.
 - [ ] Point at a real NPC or creature and press M. It should register that model name and print a report; it must never register Terrain.
 - [ ] Auto Aim tab: enable camera aim; with a registered monster inside the FOV circle, camera gradually turns toward it (without firing). Check right-mouse-only mode, circle toggle, distance and smoothing controls.
