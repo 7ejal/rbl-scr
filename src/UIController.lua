@@ -134,6 +134,17 @@ function UIController.new(playerGui, settings, fov, janitorClass)
     local subheading = label(header, "ESP CONTROL", 93, 18, 180, 26, 12)
     subheading.TextColor3 = COLOR.Muted
 
+    local hideBtn = button(header, "HIDE [CTRL]", 319, 13, 119, 36, COLOR.Sidebar)
+    self.Janitor:Add(hideBtn.MouseButton1Click:Connect(function()
+        self:ToggleWindow()
+    end))
+    self.Janitor:Add(UIS.InputBegan:Connect(function(input, processed)
+        if processed or UIS:GetFocusedTextBox() then return end
+        if input.KeyCode == settings.MenuKey then
+            self:ToggleWindow()
+        end
+    end))
+
     local fpsBG = create("Frame", header, {
         Position = UDim2.fromOffset(446, 13),
         Size = UDim2.fromOffset(92, 36),
@@ -577,6 +588,10 @@ function UIController:DrawFOV()
     self.Fill.Size = UDim2.fromScale(fraction, 1)
     self.Knob.Position = UDim2.fromScale(fraction, 0.5)
     self.FOVLabel.Text = "Camera FOV: " .. tostring(value)
+end
+
+function UIController:ToggleWindow()
+    self.Window.Visible = not self.Window.Visible
 end
 
 function UIController:RenderTargets(choices)

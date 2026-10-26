@@ -16,6 +16,7 @@ Class-based, modular client-side ESP with a dark dashboard inspired by the provi
 - `Auto Aim` tab has a monster-only camera aim toggle (OFF by default), optional right-mouse hold, FOV circle, adjustable FOV radius, target distance and smoothing. Does not fire weapons or send attack events.
 - Camera FOV slider (40 to 120 degrees) under Settings.
 - **I** toggles all ESP overlays while keeping the dashboard, FOV, and independently controlled auto-aim available.
+- **Right Ctrl** hides/shows the large dashboard (the aim circle continues to display). You can also click the HIDE [CTRL] button in the header.
 - **M** marks the target model under the cursor as a monster (same model name for all instances); alternatively use Targets > TRACK.
 - **P** inspects the creature at your cursor. If you hit Terrain or another obstacle, it tries a raycast excluding Terrain and checks recognized NPCs near your cursor.
 - **O** lists nearby recognized and unclassified Workspace models with names and full paths (25 max per group); also available via the Find models dashboard button. Diagnostics print to F9 and copy to clipboard if supported.
@@ -78,5 +79,5 @@ Each behavior has its own class-like module. Edit a module without re-copying th
 - In some games, NPCs may be friendly rather than hostile; generic matching cannot tell them apart.
 - Client streaming/replication determines what the script can inspect.
 - Monster auto aim rotates the local camera only; it does not modify weapon hits, attack accuracy, or server behavior. Aim target selection requires a recognized or user-registered monster.
-- Target names added through the GUI/ M are remembered only in the current client session; for persistence across Roblox launches, copy exact names into `config.lua`.
+- Target names added through the GUI or M are remembered only in the current client session; for persistence across Roblox launches, copy exact names into `config.lua`.
 - The script is untested in a live Xeno/Roblox runtime; follow tests/MANUAL_TESTS.md.

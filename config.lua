@@ -2,6 +2,7 @@
 return {
     Enabled = true,
     ToggleKey = Enum.KeyCode.I,
+    MenuKey = Enum.KeyCode.RightControl,
     InspectorKey = Enum.KeyCode.P,
     InspectorScanKey = Enum.KeyCode.O,
     MarkMonsterKey = Enum.KeyCode.M,
