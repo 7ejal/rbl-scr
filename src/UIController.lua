@@ -133,7 +133,7 @@ function UIController.new(playerGui, settings, fov, janitorClass)
         BackgroundTransparency = 1,
         Active = true,
     })
-    local logo = label(header, "D3F", 21, 13, 92, 36, 18)
+    local logo = label(header, "7jl", 21, 13, 92, 36, 18)
     logo.Font = Enum.Font.GothamBold
     local subheading = label(header, "ESP CONTROL", 93, 18, 180, 26, 12)
     subheading.TextColor3 = COLOR.Muted

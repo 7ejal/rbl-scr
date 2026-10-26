@@ -1,6 +1,6 @@
 # IVORY ESP (Roblox Luau)
 
-Class-based, modular client-side ESP with a dark dashboard inspired by the provided D3F screenshot. **All UI labels are in English, without emojis.**
+Class-based, modular client-side ESP with a dark dashboard branded as 7jl, with a compact dark dashboard. **All UI labels are in English, without emojis.**
 
 **Status:** Implementation is committed on PR #1, but Roblox/Xeno runtime testing remains necessary. The repository is **public**: don't commit secrets.
 
