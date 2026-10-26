@@ -16,6 +16,7 @@ function MonsterESP.new(instance, parent, classes, settings, category, isDhab)
         Projection = classes.Projection,
         IsDhab = isDhab == true,
         Quality = classes.QualityESP.new(box, instance, classes.QualityResolver),
+        DhabStats = classes.DhabStatsESP.new(box, instance),
     }, MonsterESP)
 end
 
@@ -84,6 +85,7 @@ function MonsterESP:Update(camera, localRoot)
         isMonster and self.Settings.MonsterDistance
             or (not isMonster and self.Settings.ShowDistance))
     self.Quality:Update(self.IsDhab and self.Settings.DhabQualityEnabled)
+    self.DhabStats:Update(self.IsDhab and self.Settings.DhabStatsEnabled)
 
     local showHealth = isMonster and self.Settings.MonsterHealth
         or (not isMonster and self.Settings.ShowHealth)

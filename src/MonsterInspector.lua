@@ -292,8 +292,12 @@ function MonsterInspector:BuildList(strong, unknown, reason, catches, cars)
         local item = strong[index]
         local quality = self.QualityResolver
             and self.QualityResolver.Read(item.Model)
-        table.insert(lines, string.format("%d. %s | %.0f studs | %s | %s",
+        local tier = item.Model:GetAttribute("Tier")
+        local state = item.Model:GetAttribute("State")
+        table.insert(lines, string.format("%d. %s | %.0f studs | Tier %s | %s | %s | %s",
             index, item.Model.Name, item.Distance,
+            tostring(tier or "Unknown"),
+            tostring(state or "Unknown"),
             quality and quality.Text or "Quality: Unknown",
             item.Model:GetFullName()))
     end

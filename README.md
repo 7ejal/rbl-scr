@@ -153,3 +153,9 @@ The game weapon requires a **left mouse click**. The former `Tool:Activate()` mo
 Left Click is subject to executor support and may activate GUI buttons or click the current cursor position. Hide the dashboard with **Right Ctrl** or move the pointer off it when firing. Aim, distance, center, line-of-sight, optional right-mouse requirement and rate limits still apply. Mouse clicks only occur on the current Roblox client; this does **not** guarantee that the specific weapon will fire or hit, because game-specific input and server validation can differ.
 
 The **Auto Shoot** tab reports `Xeno does not expose mouse1click` when neither supported input API is accessible. If the status says **Auto shooting: left click** but no bullets fire, determine whether the equipped weapon uses actual mouse input or requires a particular cursor position, ammo, or its own weapon handler.
+
+## Verified client-side Dhab attributes (user-provided October 26, 2026 report)
+
+The new read-only client report proves each examined `Workspace.DhabWild.Dhab_<id>` model exposes `Uid`, `Tier` (T1, T2, T3), `Length` (studs), `State` (walk/idle), `Scale`, `Speed`, and other rig attributes. **None of the inspected five models had a distinct Quality or Rarity attribute.** `Tier` is therefore displayed as **Tier**, not mislabeled as Rare/Common or as a quality percentage. The new `src/DhabStatsESP.lua` displays `Tier | Length | State` above each live Dhab in real time, with an independent toggle in the Quality tab. The `O` scan and Quality diagnostic include verified Tier values.
+
+A potential next source for rarity mapping is the replicated `ReplicatedStorage.Dhab.Config.Dhab` ModuleScript. If inspecting it through the game's own permitted developer environment, validate whether it defines tiers, rarity names and weights. Do not claim a mapping until proven. If quality is server-only, the official game code needs to replicate it.

@@ -345,22 +345,23 @@ function UIController.new(playerGui, settings, fov, janitorClass)
     local quality = self.Pages.Quality
     self:ToggleRow(quality, "Show live Dhab quality", "DhabQualityEnabled", 0)
     self:ToggleRow(quality, "Show HandCatch quality", "HandCatchQuality", 50)
+    self:ToggleRow(quality, "Show real Dhab Tier / Length / State", "DhabStatsEnabled", 100)
     local qualityScan = button(quality,
-        "Inspect nearest Dhab quality", 0, 105, 260, 38, COLOR.Row)
+        "Inspect nearest Dhab quality", 0, 151, 260, 38, COLOR.Row)
     self.Janitor:Add(qualityScan.MouseButton1Click:Connect(function()
         if self.OnQualityScan then self.OnQualityScan() end
     end))
     local qualityHint = label(quality,
         "Scans this Dhab's metadata and exact-ID-linked client records. Copies the report where supported.",
-        6, 147, 450, 46, 12)
+        6, 190, 450, 39, 12)
     qualityHint.TextWrapped = true
     qualityHint.TextTruncate = Enum.TextTruncate.None
     qualityHint.TextColor3 = COLOR.Muted
 
     local reportScroll = create("ScrollingFrame", quality, {
         Name = "QualityDiagnostic",
-        Position = UDim2.fromOffset(0, 204),
-        Size = UDim2.fromOffset(461, 208),
+        Position = UDim2.fromOffset(0, 239),
+        Size = UDim2.fromOffset(461, 173),
         BackgroundColor3 = COLOR.Sidebar,
         BorderSizePixel = 0,
         ScrollBarThickness = 4,

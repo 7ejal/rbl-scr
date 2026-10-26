@@ -91,3 +91,11 @@
 - [ ] HandCatch, cars and players cannot become Auto Shoot targets; 1–8 shots/sec cap still respected.
 - [ ] Disabling/reloading script releases any held mouse input, preventing stuck mouse-button states.
 - [ ] Anti Fog, Cars, Quality and other features retain their existing settings.
+
+## Verified Tier / Length / State
+
+- [ ] Model attributes `Tier`, `Length`, and `State` appear verbatim over recognized live Dhab, updating when the model changes.
+- [ ] `DhabStatsEnabled` Quality-tab toggle hides/shows those stats independently of `DhabQualityEnabled`.
+- [ ] `O` scan lists the actual Tier and State per live Dhab without claiming they are its numerical Quality or Rare/Common rarity.
+- [ ] Tier values T1, T2, T3 are displayed accurately; other tiers are not assumed or filtered out.
+- [ ] Missing Tier/State values don't create fake values; real Quality still reads `Quality: Unknown` until a verified source exists.

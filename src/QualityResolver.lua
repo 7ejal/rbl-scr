@@ -225,6 +225,9 @@ function Resolver.Diagnose(model)
     local lines = {
         "=== IVORY DHAB QUALITY DIAGNOSTIC ===",
         "Model: " .. model:GetFullName(),
+        "Actual Tier: " .. tostring(model:GetAttribute("Tier") or "Not exposed"),
+        "Actual Length (studs): " .. tostring(model:GetAttribute("Length") or "Not exposed"),
+        "Actual Movement State: " .. tostring(model:GetAttribute("State") or "Not exposed"),
         result.Text,
         "Resolved source: " .. tostring(result.Source),
         "Model attributes:",

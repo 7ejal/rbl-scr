@@ -38,6 +38,7 @@ return {
     CarDistance = true,
     CarHighlights = true,
     DhabQualityEnabled = true,
+    DhabStatsEnabled = true,
 
     HandCatchEnabled = true,
     HandCatchBoxes = true,
