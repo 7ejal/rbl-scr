@@ -97,6 +97,62 @@ function ESPController:SetEnabled(enabled)
     end
 end
 
+function ESPController:EmergencyStop()
+    -- F8 aborts only active autonomous actions and always releases WASD.
+    self.Settings.AutoHuntEnabled = false
+    self.Settings.AutoShootEnabled = false
+    self.Settings.AimEnabled = false
+    if self.Hunt then self.Hunt:Reset();self.Hunt:SetStatus("F8 emergency stop") end
+    if self.Hunt and self.Hunt.Vehicle then self.Hunt.Vehicle:Stop() end
+    if self.AutoShoot then self.AutoShoot:ReleaseMouse()
+        self.AutoShoot:SetStatus("F8 emergency stop") end
+    if self.Aim then self.Aim:SetHuntTarget(nil) end
+    if self.Store then
+        for _,key in ipairs({"AutoHuntEnabled","AutoShootEnabled","AimEnabled"}) do
+            self.Store:OnSettingChanged(key)
+        end
+    end
+    if self.UI then
+        self.UI:Refresh()
+        self.UI:SetDiagnosticStatus(self:Diagnostics())
+    end
+end
+
+function ESPController:Diagnostics()
+    local vehicle = self.Hunt and self.Hunt.Vehicle
+    local report = {
+        "=== IVORY DIAGNOSTICS ===",
+        "Auto Hunt: " .. tostring(self.Settings.AutoHuntEnabled),
+        "Hunt status: " .. tostring(self.Hunt and self.Hunt.Status or "not initialized"),
+        "Vehicle mode: " .. tostring(self.Settings.HuntCarInputMode),
+        "Car status: " .. tostring(vehicle and vehicle.LastStatus or "not initialized"),
+        "Key API: " .. tostring(vehicle and vehicle.Input.Method or "not probed"),
+        "Key error: " .. tostring(vehicle and vehicle.Input.Error or "none"),
+        "Auto Shoot: " .. tostring(self.AutoShoot and self.AutoShoot.Status or "not initialized"),
+        "Radar: " .. tostring(self.Settings.RadarEnabled),
+        "Performance mode: " .. tostring(self.Settings.PerformanceMode),
+        "Planner: " .. tostring(self.Planner and self.Planner:Describe() or "not initialized"),
+        "F8 stops Hunt / Shoot / Aim and releases WASD",
+    }
+    return table.concat(report, "\n")
+end
+
+function ESPController:MarkAvoidZone()
+    local c = self.LocalPlayer.Character
+    local root = c and c:FindFirstChild("HumanoidRootPart")
+    if root and self.Planner then
+        self.Planner:AddZone(root.Position)
+        if self.Hunt then self.Hunt:Reset() end
+    end
+    if self.UI then self.UI:SetDiagnosticStatus(self:Diagnostics()) end
+end
+
+function ESPController:ClearAvoidZones()
+    if self.Planner then self.Planner:ClearZones() end
+    if self.Hunt then self.Hunt:Reset() end
+    if self.UI then self.UI:SetDiagnosticStatus(self:Diagnostics()) end
+end
+
 function ESPController:SetSetting(key, value)
     if key == "Enabled" then
         self:SetEnabled(value)
@@ -108,7 +164,8 @@ function ESPController:SetSetting(key, value)
         self.FOV:SetFOV(value)
     end
     if key:match("^HuntTier") or key == "HuntPriority"
-        or key == "HuntMinLength" or key == "HuntSearchDistance" then
+        or key == "HuntMinLength" or key == "HuntSearchDistance"
+        or key == "HuntRouteEnabled" then
         if self.Hunt then self.Hunt:Reset() end
     end
     if self.Store then
@@ -117,6 +174,9 @@ function ESPController:SetSetting(key, value)
     end
     if key == "AntiFogEnabled" and self.AntiFog then
         self.AntiFog:SetEnabled(value)
+    end
+    if key == "HuntCarInputMode" and self.Hunt and self.Hunt.Vehicle then
+        self.Hunt.Vehicle:Stop()
     end
     if key == "AutoHuntEnabled" and not value and self.Hunt then
         self.Hunt:Reset()
@@ -206,6 +266,8 @@ function ESPController:Start()
     self.Store:Load()
 
     self.Stats = self.Classes.HuntStats.new(self.Settings)
+    self.Planner = self.Classes.HuntPlanner.new(self.Settings)
+    self.Catches = self.Classes.CatchTracker.new(self.Settings)
     self.FOV = self.Classes.FOVController.new(self.Settings)
     self.AntiFog = self.Classes.AntiFogController.new()
     self.UI = self.Classes.UIController.new(
@@ -218,6 +280,12 @@ function ESPController:Start()
     self.AntiFog:SetEnabled(self.Settings.AntiFogEnabled)
     self.UI:SetStorageStatus(self.Store.LastStatus)
     self.UI:SetStatistics(self.Stats:GetSummary())
+    self.UI.OnEmergencyStop = function() self:EmergencyStop() end
+    self.UI.OnMarkAvoidZone = function() self:MarkAvoidZone() end
+    self.UI.OnClearAvoidZones = function() self:ClearAvoidZones() end
+    self.UI.OnDiagnose = function()
+        self.UI:SetDiagnosticStatus(self:Diagnostics())
+    end
     self.UI.OnStatsReset = function()
         if self.Stats then self.Stats:Reset() end
     end
@@ -250,6 +318,10 @@ function ESPController:Start()
     self.Keys = self.Classes.KeybindController.new(
         self.Settings.ToggleKey,
         function() self:Toggle() end
+    )
+    self.Emergency = self.Classes.EmergencyStop.new(
+        self.Settings.EmergencyKey,
+        function() self:EmergencyStop() end
     )
     -- Create the tracker before the inspector so its target lookup is valid.
     self.MonsterTracker = self.Classes.MonsterTracker.new(
@@ -309,7 +381,10 @@ function ESPController:Start()
         end
     )
     self.Hunt.UI = self.UI
-    self.Hunt.Vehicle = self.Classes.VehicleHuntController.new(self.Settings)
+    self.Hunt.Vehicle = self.Classes.VehicleHuntController.new(
+        self.Settings, self.Classes.VehicleKeyInput
+    )
+    self.Hunt.Planner = self.Planner
     self.Hunt.Stats = self.Stats
     self.Hunt:Start()
 
@@ -332,7 +407,9 @@ function ESPController:Start()
         if self.StatsRefresh >= 1 then
             self.StatsRefresh = 0
             if self.UI and self.Stats then
-                self.UI:SetStatistics(self.Stats:GetSummary())
+                if self.Catches then self.Catches:Update() end
+                self.UI:SetStatistics(self.Stats:GetSummary() ..
+                    "\n" .. (self.Catches and self.Catches:Describe() or ""))
                 if self.Store then self.UI:SetStorageStatus(self.Store.LastStatus) end
             end
         end
@@ -340,7 +417,8 @@ function ESPController:Start()
         -- A periodic rescan accounts for spawned models that receive parts,
         -- humanoids, or tags after they initially enter Workspace.
         self.MonsterScanTimer = self.MonsterScanTimer + dt
-        if self.MonsterScanTimer >= 10 then
+        if self.MonsterScanTimer >=
+            (self.Settings.PerformanceMode and 25 or 10) then
             self.MonsterScanTimer = 0
             self:RescanMonsters()
         end
@@ -348,7 +426,10 @@ function ESPController:Start()
         if not self.Settings.Enabled then return end
 
         self.Accumulator = self.Accumulator + dt
-        local interval = 1 / math.max(1, self.Settings.RenderFPS)
+        local interval = 1 / math.max(1,
+            self.Settings.PerformanceMode
+                and math.min(15, self.Settings.RenderFPS)
+                or self.Settings.RenderFPS)
         if self.Accumulator < interval then return end
         self.Accumulator = 0
 
@@ -395,6 +476,7 @@ function ESPController:Destroy()
     if self.Tracker then self.Tracker:Destroy() end
     if self.MonsterTracker then self.MonsterTracker:Destroy() end
     if self.Keys then self.Keys:Destroy() end
+    if self.Emergency then self.Emergency:Destroy() end
     if self.Inspector then self.Inspector:Destroy() end
 
     local players = {}

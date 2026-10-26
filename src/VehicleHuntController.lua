@@ -1,243 +1,230 @@
--- IVORY vehicle hunt: uses only the local player's occupied VehicleSeat.
--- No teleports, network-ownership changes, vehicle remotes, or forced seat entry.
--- Works with cars whose chassis reads VehicleSeat ThrottleFloat/SteerFloat.
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local VehicleHuntController = {}
-VehicleHuntController.__index = VehicleHuntController
+-- Driver-only Dhab car autopilot using real WASD input where supported.
+-- Supports Seat and VehicleSeat, but only when occupied by LocalPlayer.
+-- Never teleports, forces seat ownership, or fires remote events.
+local Players=game:GetService("Players")
+local RunService=game:GetService("RunService")
+local UIS=game:GetService("UserInputService")
+local Car={}
+Car.__index=Car
+local BIND="IVORY_VehicleHuntInput"
 
-local STEP_INTERVAL = 0.05
-local INTENT_TTL = 0.75
-
-local function currentHumanoid()
-    local player = Players.LocalPlayer
-    local character = player and player.Character
-    return character and character:FindFirstChildOfClass("Humanoid")
+local function human()
+    local c=Players.LocalPlayer.Character
+    return c and c:FindFirstChildOfClass("Humanoid")
 end
-
-function VehicleHuntController.new(settings)
+local function flat(v)
+    return Vector3.new(v.X,0,v.Z)
+end
+function Car.new(settings,inputClass)
     return setmetatable({
-        Settings = settings,
-        Running = false,
-        Connection = nil,
-        Seat = nil,
-        Humanoid = nil,
-        Car = nil,
-        Target = nil,
-        Desired = nil,
-        StopDistance = 0,
-        LastIntent = 0,
-        LastStatus = "Waiting for a driver seat",
-        Accumulator = 0,
-        Error = nil,
-        Throttle = 0,
-        Steer = 0,
-    }, VehicleHuntController)
+        Settings=settings, Input=inputClass.new(),
+        Running=false, Seat=nil, Vehicle=nil, Humanoid=nil, Target=nil,
+        Goal=nil, LastIntent=0, LastStatus="Waiting for car",
+        LastProgress=os.clock(), LastPos=nil, RecoveryUntil=0,
+        Recoveries=0, Commands={}, UnreachableSignal=false,
+    },Car)
 end
-
-function VehicleHuntController:FindCar(seat, humanoid)
-    if not seat or not seat:IsA("VehicleSeat")
-        or not humanoid or humanoid.Health <= 0
-        or humanoid.SeatPart ~= seat
-        or seat.Occupant ~= humanoid then
-        return nil
-    end
-    local root = workspace:FindFirstChild(
-        self.Settings.CarsFolderName or "PlayersCars"
-    )
+function Car:FindCar(seat,h)
+    if not seat or not (seat:IsA("Seat") or seat:IsA("VehicleSeat"))
+        or not h or h.Health<=0
+        or h.SeatPart~=seat or seat.Occupant~=h then return nil end
+    local root=workspace:FindFirstChild(self.Settings.CarsFolderName or "PlayersCars")
     if not root then return nil end
-    local car = seat
-    while car and car.Parent ~= root do
-        car = car.Parent
-    end
-    if car and car:IsA("Model") and car.Parent == root then
-        return car
-    end
+    local model=seat
+    while model and model.Parent~=root do model=model.Parent end
+    if model and model:IsA("Model") and model.Parent==root then return model end
     return nil
 end
-
-function VehicleHuntController:IsDriving()
-    local humanoid = currentHumanoid()
-    local seat = humanoid and humanoid.SeatPart
-    local car = self:FindCar(seat, humanoid)
-    return seat and car ~= nil, seat, car, humanoid
+function Car:IsDriving()
+    local h=human()
+    local seat=h and h.SeatPart
+    local model=self:FindCar(seat,h)
+    return model~=nil,seat,model,h
 end
-
-function VehicleHuntController:Neutralize(seat)
-    local humanoid = currentHumanoid()
-    if seat and seat.Parent and humanoid and humanoid.SeatPart == seat
-        and seat.Occupant == humanoid then
-        pcall(function()
-            seat.ThrottleFloat = 0
-            seat.SteerFloat = 0
-        end)
+function Car:Neutralize(seat)
+    if seat and seat.Parent and seat:IsA("VehicleSeat") then
+        pcall(function() seat.ThrottleFloat=0;seat.SteerFloat=0 end)
     end
 end
-
-function VehicleHuntController:Stop()
-    local seat = self.Seat
-    self.Target = nil
-    self.Desired = nil
-    self.Seat = nil
-    self.Humanoid = nil
-    self.Car = nil
-    self.LastIntent = 0
-    self.LastStatus = "Vehicle hunt idle"
-    self.Throttle, self.Steer = 0, 0
-    self:Neutralize(seat)
+function Car:InputReleaseManual()
+    self.Input:ReleaseAll()
+    self:Neutralize(self.Seat)
 end
-
-function VehicleHuntController:Drive(seat, car, humanoid, target, destination)
+function Car:Stop()
+    self.Input:ReleaseAll()
+    self:Neutralize(self.Seat)
+    self.Seat=nil;self.Vehicle=nil;self.Humanoid=nil
+    self.Target=nil;self.Goal=nil;self.LastIntent=0
+    self.Commands={};self.LastPos=nil
+    self.LastStatus="Vehicle stopped; controls released"
+end
+function Car:Drive(seat,model,h,target,goal)
     if not self.Running or not self.Settings.AutoHuntEnabled
-        or not self.Settings.HuntCarEnabled then
-        self:Stop()
-        return false
+        or not self.Settings.HuntCarEnabled or self:FindCar(seat,h)~=model
+        or not target or not target:IsDescendantOf(workspace) then
+        self:Stop();return false
     end
-    if self:FindCar(seat, humanoid) ~= car or not target
-        or not target:IsDescendantOf(workspace) then
-        self:Stop()
-        return false
+    if self.Seat~=seat then
+        self:Stop();self.Seat=seat
+        self.LastProgress=os.clock();self.Recoveries=0
     end
-    if self.Seat and self.Seat ~= seat then self:Neutralize(self.Seat) end
-    self.Seat, self.Humanoid, self.Car = seat, humanoid, car
-    self.Target = target
-    self.Desired = destination
-    self.StopDistance = math.clamp(
-        self.Settings.HuntCarStopDistance or 48, 25, 125)
-    self.LastIntent = os.clock()
+    self.Vehicle=model;self.Humanoid=h
+    self.Target=target;self.Goal=goal;self.LastIntent=os.clock()
     return true
 end
-
-function VehicleHuntController:ObstacleAhead(seat, car, range)
-    local direction = seat.CFrame.LookVector
-    local origin = seat.Position + Vector3.new(0, 1.8, 0)
-    local flat = Vector3.new(direction.X, 0, direction.Z)
-    if flat.Magnitude < 0.1 then return false end
-
-    local params = RaycastParams.new()
-    params.FilterType = Enum.RaycastFilterType.Exclude
-    local character = Players.LocalPlayer.Character
-    params.FilterDescendantsInstances = character and {car, character}
-        or {car}
-    params.IgnoreWater = true
-
-    -- Only use the center ray for emergency detection; distant Dhab
-    -- within the configured stopping distance is never chased through.
-    local hit = workspace:Raycast(origin, flat.Unit * range, params)
-    if not hit then return false end
-    return hit.Instance ~= nil
-end
-
-function VehicleHuntController:Step()
-    if not self.Running or not self.Settings.AutoHuntEnabled
-        or not self.Settings.HuntCarEnabled then
-        if self.Seat then self:Stop() end
-        return
-    end
-
-    local seat = self.Seat
-    if not seat then return end
-    local humanoid = currentHumanoid()
-    local car = self:FindCar(seat, humanoid)
-    if not car or car ~= self.Car or humanoid ~= self.Humanoid
-        or not self.Desired or not self.Target
-        or not self.Target:IsDescendantOf(workspace)
-        or os.clock() - self.LastIntent > INTENT_TTL then
-        self:Stop()
-        return
-    end
-
-    local goal = self.Desired - seat.Position
-    local flat = Vector3.new(goal.X, 0, goal.Z)
-    local distance = flat.Magnitude
-    local velocity = seat.AssemblyLinearVelocity
-    local speed = Vector3.new(velocity.X, 0, velocity.Z).Magnitude
-
-    local throttle, steer = 0, 0
-    local stopDistance = self.StopDistance
-    local maxSpeed = math.clamp(self.Settings.HuntCarMaxSpeed or 32, 8, 90)
-    local brakeBuffer = math.clamp(speed * 0.9, 6, 55)
-
-    if distance <= stopDistance + brakeBuffer then
-        -- Coast into the stopping radius. Reverse is not forced because
-        -- custom chassis may interpret a reverse input as acceleration.
-        self.LastStatus = "Braking near Dhab"
-    else
-        local desired = flat.Unit
-        local forward = seat.CFrame.LookVector
-        local right = seat.CFrame.RightVector
-        local f = Vector3.new(forward.X, 0, forward.Z)
-        local r = Vector3.new(right.X, 0, right.Z)
-        if f.Magnitude > 0.01 and r.Magnitude > 0.01 then
-            local angle = math.atan2(desired:Dot(r.Unit), desired:Dot(f.Unit))
-            steer = math.clamp(angle * 1.8, -1, 1)
-            if self.Settings.HuntCarInvertSteering then steer = -steer end
-            -- Reduce throttle on sharp turns; cap forward speed.
-            local turnFactor = math.clamp(1 - math.abs(angle) / math.pi,
-                0.20, 1)
-            throttle = speed < maxSpeed and turnFactor or 0
-            local obstacleRange = math.clamp(speed * 1.2 + 10, 16, 45)
-            if self:ObstacleAhead(seat, car, obstacleRange) then
-                throttle = 0
-                self.LastStatus = "Obstacle ahead: vehicle slowing"
-            else
-                self.LastStatus = "Driving to Dhab"
+function Car:ObstacleAhead(seat,model,speed)
+    local direction=flat(seat.CFrame.LookVector)
+    if direction.Magnitude<0.01 then return true end
+    local range=math.clamp(speed*1.4+12,18,54)
+    local params=RaycastParams.new()
+    params.FilterType=Enum.RaycastFilterType.Exclude
+    local c=Players.LocalPlayer.Character
+    params.FilterDescendantsInstances=c and {model,c} or {model}
+    params.IgnoreWater=true
+    local origin=seat.Position+Vector3.new(0,2.2,0)
+    -- Front, left, and right safety rays.
+    local vectors={
+        direction.Unit,
+        (direction.Unit+flat(seat.CFrame.RightVector)*0.36).Unit,
+        (direction.Unit-flat(seat.CFrame.RightVector)*0.36).Unit,
+    }
+    for _,unit in ipairs(vectors) do
+        local result=workspace:Raycast(origin,unit*range,params)
+        if result then
+            -- Terrain at ground height is expected. Ignore it only if
+            -- clearly below the vehicle body; never ignore walls/objects.
+            if not (result.Instance==workspace.Terrain
+                and result.Position.Y<seat.Position.Y-1.8) then
+                return true
             end
         end
     end
+    return false
+end
+function Car:ManualInput()
+    if UIS:GetFocusedTextBox() then return true end
+    if not self.Settings.HuntPauseOnManualMove then return false end
+    -- Keypress-generated states may appear in IsKeyDown; discount only keys
+    -- the controller knows it owns. F8 always overrides regardless.
+    for _,k in ipairs({"W","A","S","D"}) do
+        if UIS:IsKeyDown(Enum.KeyCode[k]) and not self.Input:Holding(k) then
+            return true
+        end
+    end
+    for _,k in ipairs({Enum.KeyCode.Up,Enum.KeyCode.Down,
+        Enum.KeyCode.Left,Enum.KeyCode.Right}) do
+        if UIS:IsKeyDown(k) then return true end
+    end
+    return false
+end
+function Car:Step()
+    local s=self.Settings
+    if not self.Running or not s.AutoHuntEnabled or not s.HuntCarEnabled
+        or not self.Seat or not self.Goal or not self.Target
+        or os.clock()-self.LastIntent>0.9 then
+        if self.Seat then self:Stop() end
+        return
+    end
+    local h=human()
+    if h~=self.Humanoid or self:FindCar(self.Seat,h)~=self.Vehicle
+        or not self.Target:IsDescendantOf(workspace) then
+        self:Stop();return
+    end
+    if self:ManualInput() then
+        self.Input:ReleaseAll()
+        self:Neutralize(self.Seat)
+        self.LastStatus="Manual driving; autopilot paused"
+        return
+    end
+    local seat=self.Seat
+    local delta=flat(self.Goal-seat.Position)
+    local dist=delta.Magnitude
+    local velocity=flat(seat.AssemblyLinearVelocity)
+    local speed=velocity.Magnitude
+    local cap=math.clamp(s.HuntCarMaxSpeed or 32,8,90)
+    local stopDist=math.clamp(s.HuntCarStopDistance or 48,25,125)
+    local buffer=math.clamp(speed*1.35,8,65)
+    local keys={}
+    local mode=s.HuntCarInputMode or "Keyboard"
+    if mode~="Keyboard" and mode~="Seat" then mode="Keyboard" end
 
-    self.Throttle, self.Steer = throttle, steer
-    local ok, err = pcall(function()
-        seat.SteerFloat = self.Steer
-        seat.ThrottleFloat = self.Throttle
-    end)
-    if not ok then
-        self.Error = tostring(err):sub(1, 90)
-        self:Stop()
-        self.LastStatus = "VehicleSeat controls unavailable: " .. self.Error
+    if dist<=stopDist+buffer then
+        self.LastStatus="Braking near Dhab"
+    elseif dist>0.1 then
+        local f=flat(seat.CFrame.LookVector)
+        local right=flat(seat.CFrame.RightVector)
+        if f.Magnitude>0.1 and right.Magnitude>0.1 then
+            local dir=delta.Unit
+            local angle=math.atan2(dir:Dot(right.Unit),dir:Dot(f.Unit))
+            if s.HuntCarInvertSteering then angle=-angle end
+            local turn=math.clamp(s.HuntCarTurnDeadzone or 0.13,0.05,0.5)
+            if angle>turn then keys.D=true
+            elseif angle < -turn then keys.A=true end
+            local desiredSpeed=cap*math.clamp(1-math.abs(angle)/math.pi,0.25,1)
+            if speed<desiredSpeed then keys.W=true end
+            local blocked=self:ObstacleAhead(seat,self.Vehicle,speed)
+            if blocked then
+                keys.W=nil
+                self.LastStatus="Obstacle ahead: slowing"
+            else
+                self.LastStatus="Car hunting via "..mode
+            end
+        end
+    end
+    if self.LastPos and (flat(seat.Position-self.LastPos)).Magnitude>=5 then
+        self.LastPos=seat.Position;self.LastProgress=os.clock()
+        self.Recoveries=0
+    elseif not self.LastPos then
+        self.LastPos=seat.Position;self.LastProgress=os.clock()
+    elseif os.clock()-self.LastProgress>5 and dist>stopDist+buffer then
+        self.LastProgress=os.clock()
+        self.Recoveries=self.Recoveries+1
+        if self.Recoveries>2 then
+            self.UnreachableSignal=true
+            self:Stop()
+            self.LastStatus="Car stuck repeatedly; skip target"
+            return
+        end
+        self.RecoveryUntil=os.clock()+0.65
+    end
+    if os.clock()<self.RecoveryUntil then
+        keys={S=true}
+        self.LastStatus="Short reverse to unstick"
+    end
+    if mode=="Seat" then
+        self.Input:ReleaseAll()
+        if not seat:IsA("VehicleSeat") then
+            self.LastStatus="Seat mode requires VehicleSeat; select Keyboard"
+            return
+        end
+        local steer=(keys.D and 1 or 0)-(keys.A and 1 or 0)
+        local throttle=(keys.W and 1 or 0)-(keys.S and 1 or 0)
+        pcall(function()seat.SteerFloat=steer;seat.ThrottleFloat=throttle end)
+    else
+        self:Neutralize(seat)
+        local ok,err=self.Input:Set(keys)
+        if not ok then
+            self.LastStatus="WASD unavailable: "..tostring(err)
+            self.Input:ReleaseAll()
+        end
     end
 end
-
-function VehicleHuntController:Start()
+function Car:Start()
     if self.Running then return end
-    self.Running = true
-    -- Bind AFTER default PlayerModule input updates. The core vehicle
-    -- controller can overwrite seat floats every rendered frame.
-    RunService:BindToRenderStep("IVORY_VehicleHuntInput",
-        Enum.RenderPriority.Camera.Value + 2, function(dt)
-            self.Accumulator = self.Accumulator + dt
-            if self.Accumulator >= STEP_INTERVAL then
-                self.Accumulator = 0
-                local ok, err = pcall(self.Step, self)
-                if not ok then
-                    self.Error = tostring(err)
-                    self:Stop()
-                    self.LastStatus = "Vehicle hunt error: " ..
-                        tostring(err):sub(1, 75)
-                end
-            end
-            local seat = self.Seat
-            if seat then
-                local humanoid = currentHumanoid()
-                if humanoid and self:FindCar(seat, humanoid) == self.Car
-                    and humanoid == self.Humanoid
-                    and os.clock() - self.LastIntent <= INTENT_TTL then
-                    pcall(function()
-                        seat.SteerFloat = self.Steer
-                        seat.ThrottleFloat = self.Throttle
-                    end)
-                else
-                    self:Stop()
-                end
+    self.Running=true
+    RunService:BindToRenderStep(BIND,
+        Enum.RenderPriority.Camera.Value+2,function()
+            local ok,err=pcall(self.Step,self)
+            if not ok then
+                self:Stop()
+                self.LastStatus="Car input error: "..tostring(err):sub(1,90)
             end
         end)
 end
-
-function VehicleHuntController:Destroy()
-    self.Running = false
-    RunService:UnbindFromRenderStep("IVORY_VehicleHuntInput")
-    self.Connection = nil
+function Car:Destroy()
+    self.Running=false
+    RunService:UnbindFromRenderStep(BIND)
     self:Stop()
+    self.Input:Destroy()
 end
-
-return VehicleHuntController
+return Car

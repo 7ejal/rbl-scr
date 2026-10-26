@@ -139,7 +139,7 @@ function Radar:Start()
     if self.Connection then return end
     self.Connection = RunService.Heartbeat:Connect(function(dt)
         self.Accumulator = self.Accumulator + dt
-        if self.Accumulator < 0.25 then return end
+        if self.Accumulator < (self.Settings.PerformanceMode and 0.75 or 0.25) then return end
         self.Accumulator = 0
         local ok, err = pcall(self.Update, self)
         if not ok then warn("[IVORY RADAR] " .. tostring(err)) end

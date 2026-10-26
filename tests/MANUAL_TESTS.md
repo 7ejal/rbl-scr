@@ -167,3 +167,22 @@
 - [ ] Holding WASD/arrow keys (manual pause enabled) releases automatic driving and player may control car normally.
 - [ ] Exiting car returns to on-foot mode; Auto Hunt OFF, death, change of seat, stop/unload and re-execute neutralize vehicle controls and disconnect listener.
 - [ ] On custom chassis that ignores VehicleSeat float properties, status may show driving but vehicle movement may be unsupported: never claim all vehicles work.
+
+
+## Eight upgrades and WASD car mode smoke tests (live Xeno not yet tested)
+
+- [ ] When seated as local Occupant inside PlayersCars in either Seat or VehicleSeat, Auto Hunt accepts driver status.
+- [ ] Default Car input reads Keyboard W/A/S/D, NOT direct VehicleSeat properties.
+- [ ] If supported, keypress/keyrelease holds and releases W/A/S/D while driving, including steering; never leaves a stuck key on disable/reload/seat exit/F8.
+- [ ] If executor input is unsupported, Diagnostics shows precise API failure; gameplay is not claimed to be working.
+- [ ] Switching Car input to VehicleSeat works only when the occupied part is actually VehicleSeat.
+- [ ] F8 stops hunt, auto shoot, camera aim, releases W/A/S/D and cancels on-foot navigation.
+- [ ] Smart scoring selects targets based on verified length, scale, and distance; user weights adjust ranking.
+- [ ] Route planning chooses a short sequence of up to 12 eligible targets and removes destroyed/unreachable targets.
+- [ ] Predictive Aim ON leads a moving live Dhab but never targets a HandCatch/car/player; OFF preserves previous aim.
+- [ ] Catch tracker reports ONLY objects in DhabCatches with explicit matching OwnerUserId/OwnerId/PlayerUserId/UserId, never claims a verified catch or guessed capacity.
+- [ ] Blacklist current zone causes targets in a configurable radius to be excluded. Clearing zones restores eligibility.
+- [ ] Performance mode limits overlay to 15 FPS, rescan every 25s, radar every 0.75s, hunt updates every 0.6s.
+- [ ] Advanced and Diagnostics scrollable/regular page properties are valid (no Frame.ScrollBarThickness runtime error).
+- [ ] All new modules referenced in main.lua exist, return a class, and have clean destruction handlers.
+- [ ] Xeno with no keyboard injection API still loads, remains responsive and displays an honest error. No promises of car movement until live-tested.

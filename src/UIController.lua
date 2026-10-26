@@ -176,7 +176,7 @@ function UIController.new(playerGui, settings, fov, janitorClass)
         BorderSizePixel = 0,
         ScrollBarThickness = 3,
         ScrollingDirection = Enum.ScrollingDirection.Y,
-        CanvasSize = UDim2.fromOffset(0, 535),
+        CanvasSize = UDim2.fromOffset(0, 620),
     })
     corner(sidebar, 12)
 
@@ -189,7 +189,7 @@ function UIController.new(playerGui, settings, fov, janitorClass)
 
     local tabs = {"Home", "ESP", "Auto Aim", "Auto Shoot", "Auto Hunt",
         "Radar", "Statistics", "Monsters", "HandCatch", "Cars", "Quality",
-        "Targets", "Settings"}
+        "Targets", "Settings", "Advanced", "Diagnostics"}
     for index, name in ipairs(tabs) do
         local tab = button(sidebar, name, 10, 10 + (index - 1) * 37, 161, 32, COLOR.Sidebar)
         self.Tabs[name] = tab
@@ -197,6 +197,7 @@ function UIController.new(playerGui, settings, fov, janitorClass)
             self:ShowPage(name)
         end))
         local scrollable = name == "Auto Hunt" or name == "Auto Shoot"
+            or name == "Advanced" or name == "Statistics"
         -- ScrollBarThickness/CanvasSize only exist on ScrollingFrame.
         -- Passing ScrollBarThickness = 0 to a regular Frame errors at load.
         local pageProps = {
@@ -210,7 +211,8 @@ function UIController.new(playerGui, settings, fov, janitorClass)
             pageProps.ScrollBarThickness = 4
             pageProps.ScrollingDirection = Enum.ScrollingDirection.Y
             pageProps.CanvasSize = UDim2.fromOffset(0,
-                name == "Auto Hunt" and 1550 or 560)
+                name == "Auto Hunt" and 1550
+                    or (name == "Advanced" and 1180 or 600))
         end
         local page = create(scrollable and "ScrollingFrame" or "Frame",
             mainArea, pageProps)
@@ -574,7 +576,8 @@ function UIController.new(playerGui, settings, fov, janitorClass)
     self.HuntPriorityBtn = button(hunt,
         "Target priority: Closest", 0, 427, 290, 38, COLOR.Sidebar)
     self.Janitor:Add(self.HuntPriorityBtn.MouseButton1Click:Connect(function()
-        local order = {Closest = "Longest", Longest = "Largest", Largest = "Closest"}
+        local order = {Closest = "Longest", Longest = "Largest",
+            Largest = "Smart", Smart = "Closest"}
         self:ChangeSetting("HuntPriority",
             order[self.Settings.HuntPriority] or "Closest")
     end))
@@ -615,6 +618,15 @@ function UIController.new(playerGui, settings, fov, janitorClass)
     driveInfo.TextYAlignment = Enum.TextYAlignment.Top
     driveInfo.TextColor3 = COLOR.Muted
 
+    -- Input backend for cars that move from real WASD instead of Seat floats.
+    self.CarInputButton = button(hunt,
+        "Car input: Keyboard W/A/S/D", 0, 1466, 326, 39, COLOR.Row)
+    self.Janitor:Add(self.CarInputButton.MouseButton1Click:Connect(function()
+        local nextMode = self.Settings.HuntCarInputMode == "Keyboard"
+            and "Seat" or "Keyboard"
+        self:ChangeSetting("HuntCarInputMode", nextMode)
+    end))
+
     -- Radar page: nearby live Dhab, highlighted hunt target and distances.
     local radarPage = self.Pages.Radar
     self:ToggleRow(radarPage, "Show Dhab radar overlay", "RadarEnabled", 0)
@@ -647,18 +659,18 @@ function UIController.new(playerGui, settings, fov, janitorClass)
     self:ToggleRow(statsPage, "Collect session statistics", "StatsEnabled", 0)
     self:ToggleRow(statsPage, "Save preferences locally", "SaveSettingsEnabled", 50)
     self.StatsLabel = label(statsPage, "No hunt activity yet",
-        11, 112, 438, 179, 13)
+        11, 112, 438, 355, 13)
     self.StatsLabel.TextWrapped = true
     self.StatsLabel.TextTruncate = Enum.TextTruncate.None
     self.StatsLabel.TextYAlignment = Enum.TextYAlignment.Top
     self.ResetStatsButton = button(statsPage, "Reset session stats",
-        11, 305, 210, 37, COLOR.Row)
+        11, 474, 210, 37, COLOR.Row)
     self.Janitor:Add(self.ResetStatsButton.MouseButton1Click:Connect(function()
         if self.OnStatsReset then self.OnStatsReset() end
     end))
     self.StorageLabel = label(statsPage,
         "Local save requires readfile and writefile in Xeno",
-        11, 350, 440, 60, 12)
+        11, 521, 440, 60, 12)
     self.StorageLabel.TextWrapped = true
     self.StorageLabel.TextTruncate = Enum.TextTruncate.None
     self.StorageLabel.TextColor3 = COLOR.Muted
@@ -692,6 +704,83 @@ function UIController.new(playerGui, settings, fov, janitorClass)
         allTargets.Text = self.ShowScenery and "Show scenery: ON" or "Show scenery: OFF"
         if self.OnTargetsRefresh then self.OnTargetsRefresh(self.ShowScenery) end
     end))
+
+
+    -- Advanced hunt controls and emergency stop.
+    local adv = self.Pages.Advanced
+    local emergency = button(adv,
+        "EMERGENCY STOP (F8)", 0, 2, 244, 43, COLOR.Off)
+    self.Janitor:Add(emergency.MouseButton1Click:Connect(function()
+        if self.OnEmergencyStop then self.OnEmergencyStop() end
+    end))
+    self:ToggleRow(adv, "Multi-Dhab route planning", "HuntRouteEnabled", 58)
+    self:ToggleRow(adv, "Predictive Dhab aim", "AimPredictionEnabled", 109)
+    self:ToggleRow(adv, "Performance mode (15 FPS overlay)", "PerformanceMode", 160)
+
+    local function advancedValue(y,title,key,step,minVal,maxVal,suffix)
+        local panel=create("Frame",adv,{
+            Position=UDim2.fromOffset(0,y),
+            Size=UDim2.fromOffset(461,77),
+            BackgroundColor3=COLOR.Sidebar,BorderSizePixel=0,
+        })
+        corner(panel,8)
+        self.AdvancedLabels[key]=label(panel,title,12,3,426,26,14)
+        local less=button(panel,"- "..tostring(step),
+            12,36,140,34,COLOR.Row)
+        local more=button(panel,"+ "..tostring(step),
+            162,36,140,34,COLOR.Row)
+        self.AdvancedSuffix[key]=suffix
+        self.Janitor:Add(less.MouseButton1Click:Connect(function()
+            self:ChangeSetting(key,math.clamp(
+                self.Settings[key]-step,minVal,maxVal))
+        end))
+        self.Janitor:Add(more.MouseButton1Click:Connect(function()
+            self:ChangeSetting(key,math.clamp(
+                self.Settings[key]+step,minVal,maxVal))
+        end))
+    end
+    self.AdvancedLabels={}
+    self.AdvancedSuffix={}
+    advancedValue(218,"Length score weight","HuntScoreLength",1,0,10,"")
+    advancedValue(304,"Size score weight","HuntScoreSize",1,0,10,"")
+    advancedValue(390,"Distance penalty","HuntScoreDistance",0.02,0,0.5,"")
+    advancedValue(476,"Aim lead time","AimLeadSeconds",0.05,0,0.6," sec")
+    advancedValue(562,"Blacklist zone radius","HuntAvoidRadius",10,20,350," studs")
+    local blockButton=button(adv,"Blacklist current location",
+        0,655,260,37,COLOR.Row)
+    self.Janitor:Add(blockButton.MouseButton1Click:Connect(function()
+        if self.OnMarkAvoidZone then self.OnMarkAvoidZone() end
+    end))
+    local clearButton=button(adv,"Clear blocked zones",
+        0,701,260,37,COLOR.Row)
+    self.Janitor:Add(clearButton.MouseButton1Click:Connect(function()
+        if self.OnClearAvoidZones then self.OnClearAvoidZones() end
+    end))
+    local hint=label(adv,
+        "Smart scoring combines actual Dhab Length, Scale and distance. Route planning visits nearby candidates in a short sequence. Blacklists are session-only.",
+        8,749,440,95,12)
+    hint.TextWrapped=true
+    hint.TextYAlignment=Enum.TextYAlignment.Top
+    hint.TextColor3=COLOR.Muted
+
+    local diagnostics=self.Pages.Diagnostics
+    local diagRefresh=button(diagnostics,
+        "Refresh diagnostics",0,0,220,40,COLOR.Row)
+    self.Janitor:Add(diagRefresh.MouseButton1Click:Connect(function()
+        if self.OnDiagnose then self.OnDiagnose() end
+    end))
+    local diagStop=button(diagnostics,
+        "Stop all (F8)",237,0,222,40,COLOR.Off)
+    self.Janitor:Add(diagStop.MouseButton1Click:Connect(function()
+        if self.OnEmergencyStop then self.OnEmergencyStop() end
+    end))
+    self.DiagnosticLabel=label(diagnostics,
+        "Press Refresh diagnostics to inspect vehicle keyboard API support.",
+        7,60,448,335,12)
+    self.DiagnosticLabel.TextWrapped=true
+    self.DiagnosticLabel.TextTruncate=Enum.TextTruncate.None
+    self.DiagnosticLabel.TextYAlignment=Enum.TextYAlignment.Top
+    self.DiagnosticLabel.Font=Enum.Font.Code
 
     -- Settings tab: functional FOV slider and additional player preferences.
     local settingsPage = self.Pages.Settings
@@ -896,6 +985,17 @@ function UIController:Refresh()
         self.ShootRateLabel.Text = "Firing rate: " ..
             tostring(self.Settings.AutoShootRate) .. " shots/sec"
     end
+    if self.CarInputButton then
+        self.CarInputButton.Text = self.Settings.HuntCarInputMode == "Seat"
+            and "Car input: VehicleSeat" or "Car input: Keyboard W/A/S/D"
+    end
+    if self.AdvancedLabels then
+        for key,lbl in pairs(self.AdvancedLabels) do
+            lbl.Text=key..": "..tostring(
+                math.floor(self.Settings[key]*100+0.5)/100)
+                ..(self.AdvancedSuffix[key] or "")
+        end
+    end
     if self.HuntPriorityBtn then
         self.HuntPriorityBtn.Text = "Target priority: " ..
             tostring(self.Settings.HuntPriority)
@@ -932,6 +1032,10 @@ end
 
 function UIController:SetStorageStatus(status)
     if self.StorageLabel then self.StorageLabel.Text = tostring(status) end
+end
+
+function UIController:SetDiagnosticStatus(report)
+    if self.DiagnosticLabel then self.DiagnosticLabel.Text=tostring(report) end
 end
 
 function UIController:SetAutoHuntStatus(status)

@@ -107,6 +107,7 @@ function AutoHuntController:ValidTarget(model, origin)
     local location = positionOf(model)
     if not location then return nil end
     local distance = (location - origin).Magnitude
+    if self.Planner and self.Planner:IsBlocked(location) then return nil end
     if distance > math.max(100, self.Settings.HuntSearchDistance or 700) then
         return nil
     end
@@ -114,6 +115,13 @@ function AutoHuntController:ValidTarget(model, origin)
 end
 
 function AutoHuntController:ClosestDhab(origin)
+    if self.Planner then
+        return self.Planner:Select(origin, self.Tracker.Known,
+            function(model, source)
+                if not self.Tracker:IsDhab(model) then return nil end
+                return self:ValidTarget(model, source)
+            end)
+    end
     local best, bestScore, bestDistance = nil, -math.huge, math.huge
     local priority = self.Settings.HuntPriority or "Closest"
     for model, category in pairs(self.Tracker.Known) do
@@ -146,6 +154,7 @@ end
 
 function AutoHuntController:SkipUnreachable(reason)
     local model = self.Target
+    if self.Planner and model then self.Planner:Completed(model) end
     if model then
         self.Unreachable[model] = os.clock() + 35
         self.FailedRoutes[model] = nil
@@ -268,14 +277,20 @@ function AutoHuntController:Update()
             return
         end
 
+        if vehicle.UnreachableSignal then
+            vehicle.UnreachableSignal = false
+            self:SkipUnreachable("Vehicle failed to move; skipped target")
+            return
+        end
         local driving, seat, car = vehicle:IsDriving()
         if not driving then
             vehicle:Stop()
             self:SetStatus("Car requires your occupied VehicleSeat in PlayersCars")
             return
         end
-        if self:ManualOverride() then
-            vehicle:Stop()
+        if vehicle:ManualInput() then
+            vehicle:InputReleaseManual()
+            vehicle.LastStatus = "Manual controls; autopilot paused"
             self:SetStatus("Vehicle paused: manual controls / typing")
             return
         end
@@ -426,7 +441,7 @@ function AutoHuntController:Start()
     table.insert(self.Connections, RunService.Heartbeat:Connect(function(dt)
         if not self.Running then return end
         self.Accumulator = self.Accumulator + dt
-        if self.Accumulator < UPDATE_INTERVAL then return end
+        if self.Accumulator < (self.Settings.PerformanceMode and 0.6 or UPDATE_INTERVAL) then return end
         self.Accumulator = 0
         local ok, err = pcall(self.Update, self)
         if not ok then

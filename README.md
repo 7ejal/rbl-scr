@@ -211,3 +211,22 @@ Enable **Auto Hunt → Auto Hunt while driving (VehicleSeat)** (enabled by defau
 Vehicle steering follows the direction of the chosen Dhab and writes standard local `VehicleSeat.ThrottleFloat` / `SteerFloat` values while occupied; it slows/coasts approaching the stopping radius and stops throttle on a detected obstacle. Holding WASD/arrow keys pauses automated driving when the manual-movement guard is ON. Seat change, death, target loss, toggling hunting OFF and script cleanup release the controls. There is no guaranteed vehicle pathfinding, automatic road routing or custom chassis support. `VehicleSeat` is documented to forward inputs only to compatible motor joints; custom vehicles may have to be integrated with their own *documented* control system. No game-specific remotes, item collection or simulated server damage.
 
 If your car uses a generic `Seat` rather than `VehicleSeat`, or is not under `PlayersCars`, the status reports why vehicle hunting is unavailable. This has been statically inspected on GitHub but has **not been tested inside your actual car/Xeno client**.
+
+
+## Eight upgrades + keyboard-driven car fix (October 26, 2026)
+
+**Car fix: this game's vehicle is driven with W/A/S/D, not necessarily VehicleSeat floats.** VehicleHuntController now defaults to **Keyboard W/A/S/D** rather than directly writing VehicleSeat input. It only controls the local player's occupied Seat or VehicleSeat under Workspace.PlayersCars. VehicleKeyInput tries executor keypress/keyrelease using Windows virtual-key codes W=0x57, A=0x41, S=0x53 and D=0x44. It falls back to protected VirtualInputManager SendKeyEvent when exposed; neither API is guaranteed available in every Xeno version. If unsupported, Diagnostics reports the input error; it NEVER claims successful movement. You can choose the old Seat control mode from Auto Hunt's Car input button if your chassis responds to VehicleSeat floats.
+
+**8 upgrades**
+1. Advanced car autopilot: keyboard steering, speed limiting, multi-ray obstacle detection, short reverse recovery and automatic key release. Direct world-coordinate steering is not a fully fledged road planner; not all chassis work.
+2. Intelligent target scoring: Auto Hunt's Target priority now offers Smart, combining true replicated Length, Scale and distance with tunable weights on the Advanced page. Existing Closest/Longest/Largest remain.
+3. Multi-Dhab route planner: optional checkbox builds a short greedy nearest-neighbor path through up to 12 candidates. Keeps a route across target selection; does not teleport or guarantee that every point has safe road access.
+4. Predictive aim: optional camera lead based on Dhab primary-part AssemblyLinearVelocity, clamp of maximum velocity and adjustable AimLeadSeconds (0 to 0.6). Only targets live Dhab; actual projectile travel time is unknown.
+5. Catch/inventory observer: read-only inspection of Workspace.DhabCatches objects that explicitly claim ownership by LocalPlayer.UserId, and player inventory capacity fields if replicated. Shows owned catch objects observed, not guaranteed server-confirmed catches. Unknown capacity is displayed as unknown rather than invented.
+6. Blacklist zones: Advanced tab can mark player's current position as a temporary avoid region, with adjustable radius and Clear blocked zones. Up to 20 session-only zones; not persisted and not an exact polygon route solver.
+7. Performance mode: reduces monster rescan interval, caps overlay render to 15 FPS and lowers radar/hunter update frequency. FPS/ping shown in the existing header; Roblox UI runtime compatibility still needs testing.
+8. Emergency stop and diagnostics: press **F8** or click Emergency stop to immediately disable Hunt/Aim/Shoot and release injected W/A/S/D keys. Diagnostics tab shows current mode, car state, keyboard API, input errors, Auto Shoot status and planner summary.
+
+The Advanced and Diagnostics tabs are available in the scrollable sidebar. Features are optional, with Auto Hunt OFF by default and saved settings still opt-in. No network-ownership manipulation, game-specific remotes, server damage spoofing, teleporting or forced interaction was introduced.
+
+**IMPORTANT:** GitHub/static verification cannot establish whether your Xeno version actually exposes keypress/keyrelease/VirtualInputManager or whether the custom chassis receives injected input. Enter the car, enable Auto Hunt, open Diagnostics and check Key API / Key error. Press F8 immediately if the car behaves unexpectedly.

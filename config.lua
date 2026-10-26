@@ -84,6 +84,17 @@ return {
     HuntCarStopDistance = 48, -- studs, 25-125
     HuntCarMaxSpeed = 32, -- studs/second (8-90); chassis may differ
     HuntCarInvertSteering = false,
+    HuntCarInputMode = "Keyboard", -- actual WASD, Seat fallback
+    HuntCarTurnDeadzone = 0.13,
+    HuntRouteEnabled = false,
+    HuntScoreLength = 3,
+    HuntScoreSize = 3,
+    HuntScoreDistance = 0.08,
+    HuntAvoidRadius = 110,
+    AimPredictionEnabled = false,
+    AimLeadSeconds = 0.15,
+    PerformanceMode = false,
+    EmergencyKey = Enum.KeyCode.F8,
 
     -- Radar and session stats.
     RadarEnabled = false,

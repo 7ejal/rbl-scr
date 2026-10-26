@@ -18,6 +18,10 @@ local KEYS = {
     "HuntPauseOnManualMove", "HuntStopDistance", "HuntSearchDistance",
     "HuntShootDistance", "HuntCarEnabled", "HuntCarStopDistance",
     "HuntCarMaxSpeed", "HuntCarInvertSteering",
+    "HuntCarInputMode", "HuntCarTurnDeadzone",
+    "HuntRouteEnabled", "HuntScoreLength", "HuntScoreSize",
+    "HuntScoreDistance", "HuntAvoidRadius",
+    "AimPredictionEnabled", "AimLeadSeconds", "PerformanceMode",
     "HuntPriority", "HuntMinLength",
     "HuntTierT1", "HuntTierT2", "HuntTierT3", "HuntTierT4",
     "HuntTierT5", "HuntTierT6", "HuntTierUnknown", "RadarEnabled",
@@ -78,7 +82,13 @@ function Store:Load()
                 end
             elseif key == "HuntPriority" then
                 if value == "Closest" or value == "Longest"
-                    or value == "Largest" then default[key] = value end
+                    or value == "Largest" or value == "Smart" then
+                    default[key] = value
+                end
+            elseif key == "HuntCarInputMode" then
+                if value == "Keyboard" or value == "Seat" then
+                    default[key] = value
+                end
             elseif key == "AutoShootInputMode" then
                 if value == "Tool" or value == "Mouse" then
                     default[key] = value
@@ -97,6 +107,10 @@ function Store:Load()
         HuntShootDistance = {10, 500}, HuntMinLength = {0, 12},
         HuntCarStopDistance = {25, 125}, HuntCarMaxSpeed = {8, 90},
         RadarRange = {100, 2000}, CameraFOV = {0, 120},
+        HuntCarTurnDeadzone = {0.05, 0.5},
+        HuntScoreLength = {0, 10}, HuntScoreSize = {0, 10},
+        HuntScoreDistance = {0, 0.5}, HuntAvoidRadius = {20, 350},
+        AimLeadSeconds = {0, 0.6},
     }
     for key, limits in pairs(bounds) do
         default[key] = math.clamp(default[key], limits[1], limits[2])

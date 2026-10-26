@@ -48,6 +48,19 @@ function AimController.new(settings, tracker, playerGui)
     return self
 end
 
+function AimController:Focus(model)
+    local center = focusPosition(model)
+    if not center or not self.Settings.AimPredictionEnabled then return center end
+    local part = model.PrimaryPart
+        or model:FindFirstChild("HumanoidRootPart", true)
+        or model:FindFirstChildWhichIsA("BasePart", true)
+    if not part then return center end
+    local lead = math.clamp(self.Settings.AimLeadSeconds or 0.15, 0, 0.6)
+    local velocity = part.AssemblyLinearVelocity
+    if velocity.Magnitude > 120 then return center end
+    return center + velocity * lead
+end
+
 function AimController:SetHuntTarget(model)
     self.HuntTarget = model
 end
@@ -74,7 +87,7 @@ function AimController:BestTarget(camera)
                 and (type(health) ~= "number" or health > 0)
                 and state ~= "dead" and state ~= "death"
             if active then
-                local focus = focusPosition(hunted)
+                local focus = self:Focus(hunted)
                 if focus and (focus - origin).Magnitude <= settings.AimDistance then
                     return focus, hunted
                 end
@@ -97,7 +110,7 @@ function AimController:BestTarget(camera)
                 and (type(health) ~= "number" or health > 0)
 
             if alive then
-                local position = focusPosition(target)
+                local position = self:Focus(target)
                 if position then
                     local distance = (position - origin).Magnitude
                     if distance <= settings.AimDistance then
