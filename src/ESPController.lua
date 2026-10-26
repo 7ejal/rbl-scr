@@ -34,10 +34,10 @@ function ESPController:RemovePlayer(player)
     self.Records[player] = nil
 end
 
-function ESPController:AddMonster(model)
+function ESPController:AddMonster(model, category)
     if self.Monsters[model] then return end
     self.Monsters[model] = self.Classes.MonsterESP.new(
-        model, self.UI.Gui, self.Classes, self.Settings
+        model, self.UI.Gui, self.Classes, self.Settings, category
     )
     self:UpdateMonsterCount()
 end
@@ -52,7 +52,9 @@ end
 
 function ESPController:UpdateMonsterCount()
     local count = 0
-    for _ in pairs(self.Monsters) do count = count + 1 end
+    for _, record in pairs(self.Monsters) do
+        if record.Category == "monster" then count = count + 1 end
+    end
     if self.UI then self.UI:SetMonsterCount(count) end
 end
 
@@ -82,7 +84,13 @@ function ESPController:SetSetting(key, value)
     if key == "PlayersEnabled" and not value then
         for _, record in pairs(self.Records) do record:Hide() end
     elseif key == "MonsterEnabled" and not value then
-        for _, record in pairs(self.Monsters) do record:Hide() end
+        for _, record in pairs(self.Monsters) do
+            if record.Category == "monster" then record:Hide() end
+        end
+    elseif key == "OtherNPCEnabled" and not value then
+        for _, record in pairs(self.Monsters) do
+            if record.Category == "other" then record:Hide() end
+        end
     end
     if self.UI then self.UI:Refresh() end
 end
@@ -107,16 +115,47 @@ function ESPController:Start()
         self:SetSetting(key, value)
     end
     self.UI.OnRescan = function() self:RescanMonsters() end
+    self.UI.OnTargetsRefresh = function(showScenery)
+        if self.MonsterTracker then
+            self.UI:RenderTargets(
+                self.MonsterTracker:GetChoices(40, showScenery)
+            )
+        end
+    end
+    self.UI.OnTrackMonster = function(instance, enabled)
+        if not self.MonsterTracker then return end
+        if enabled then
+            self.MonsterTracker:TrackName(instance)
+        else
+            self.MonsterTracker:UntrackName(instance)
+        end
+        self:UpdateMonsterCount()
+    end
 
     self.Keys = self.Classes.KeybindController.new(
         self.Settings.ToggleKey,
         function() self:Toggle() end
     )
+    -- Create the tracker before the inspector so its target lookup is valid.
+    self.MonsterTracker = self.Classes.MonsterTracker.new(
+        function(model, category) self:AddMonster(model, category) end,
+        function(model) self:RemoveMonster(model) end,
+        self.Settings
+    )
+    self.MonsterTracker:Start()
+
     self.Inspector = self.Classes.MonsterInspector.new(
         self.Settings.InspectorKey,
         self.Settings.InspectorScanKey,
-        self.Classes.MonsterTracker
+        self.MonsterTracker,
+        self.Settings.MarkMonsterKey
     )
+    self.Inspector.OnMarked = function()
+        self:UpdateMonsterCount()
+        if self.UI.ActivePage == "Targets" then
+            self.UI.OnTargetsRefresh(self.UI.ShowScenery)
+        end
+    end
     self.UI.OnInspectNearby = function()
         if self.Inspector then self.Inspector:ScanNearby() end
     end
@@ -128,11 +167,10 @@ function ESPController:Start()
     )
     self.Tracker:Start()
 
-    self.MonsterTracker = self.Classes.MonsterTracker.new(
-        function(model) self:AddMonster(model) end,
-        function(model) self:RemoveMonster(model) end
+    self.Aim = self.Classes.AimController.new(
+        self.Settings, self.MonsterTracker, self.UI.Gui
     )
-    self.MonsterTracker:Start()
+    self.Aim:Start()
 
     self.Running = true
     table.insert(self.Connections, RunService.RenderStepped:Connect(function(dt)
@@ -167,14 +205,15 @@ function ESPController:Start()
             end
         end
 
-        if self.Settings.MonsterEnabled then
-            for model, record in pairs(self.Monsters) do
-                if self.MonsterTracker:IsCandidate(model) then
-                    local ok = pcall(record.Update, record, camera, localRoot)
-                    if not ok then record:Hide() end
-                else
-                    record:Hide()
-                end
+        for model, record in pairs(self.Monsters) do
+            local category = self.MonsterTracker.Known[model]
+            local visible = category == "monster" and self.Settings.MonsterEnabled
+                or (category == "other" and self.Settings.OtherNPCEnabled)
+            if visible then
+                local ok = pcall(record.Update, record, camera, localRoot)
+                if not ok then record:Hide() end
+            else
+                record:Hide()
             end
         end
     end))
@@ -190,6 +229,7 @@ function ESPController:Destroy()
     end
     table.clear(self.Connections)
 
+    if self.Aim then self.Aim:Destroy() end
     if self.Tracker then self.Tracker:Destroy() end
     if self.MonsterTracker then self.MonsterTracker:Destroy() end
     if self.Keys then self.Keys:Destroy() end

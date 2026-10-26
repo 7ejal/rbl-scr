@@ -30,6 +30,12 @@ local function load(path)
 end
 
 local settings = load("config.lua")
+-- Keep user-tracked monster names when the loader is re-executed.
+if type(env.IvoryMonsterNames) == "table" then
+    settings.MonsterModelNames = env.IvoryMonsterNames
+else
+    env.IvoryMonsterNames = settings.MonsterModelNames
+end
 local classes = {}
 local names = {
     "Janitor",
@@ -44,6 +50,7 @@ local names = {
     "MonsterESP",
     "MonsterTracker",
     "MonsterInspector",
+    "AimController",
     "FOVController",
     "UIController",
     "KeybindController",
@@ -76,5 +83,5 @@ local function stop()
 end
 
 env.IvoryESP_Stop = stop
-print("[IVORY ESP] Dashboard ready | I: toggle | P: inspect | O: list nearby models")
+print("[IVORY ESP] Ready | I: ESP | P: inspect | O: scan | M: mark monster")
 return controller

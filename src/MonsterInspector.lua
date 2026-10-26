@@ -45,10 +45,12 @@ local function attributeLines(model, lines)
     end
 end
 
-function MonsterInspector.new(key, scanKey, monsterTracker)
+function MonsterInspector.new(key, scanKey, monsterTracker, markKey)
     local self = setmetatable({
         Key = key,
         ScanKey = scanKey or Enum.KeyCode.O,
+        MarkKey = markKey or Enum.KeyCode.M,
+        OnMarked = nil,
         Tracker = monsterTracker,
         Mouse = Players.LocalPlayer:GetMouse(),
         Connection = nil,
@@ -60,6 +62,8 @@ function MonsterInspector.new(key, scanKey, monsterTracker)
             self:InspectAtCursor()
         elseif input.KeyCode == self.ScanKey then
             self:ScanNearby()
+        elseif input.KeyCode == self.MarkKey then
+            self:MarkAtCursor()
         end
     end)
     return self
@@ -286,6 +290,33 @@ end
 function MonsterInspector:ScanNearby()
     local strong, unknown = self:NearestModels()
     self:PrintAndCopy(self:BuildList(strong, unknown))
+end
+
+function MonsterInspector:MarkAtCursor()
+    local raw = self:ModelFromPart(self.Mouse.Target)
+    local ray = self:ModelFromPart(self:RaycastModel())
+    local strong = self:NearestModels()
+    local candidate = nil
+
+    -- Prefer a precise cursor selection. If terrain blocked it, search
+    -- only among recognizable nearby NPCs; never mark Terrain.
+    if raw then
+        candidate = raw
+    elseif ray then
+        candidate = ray
+    else
+        candidate = self:ClosestToCursor(strong)
+    end
+
+    if not candidate then
+        warn("[IVORY] Could not select a model. Use Targets > Show scenery and TRACK.")
+        return
+    end
+
+    if self.Tracker:TrackName(candidate) then
+        self:PrintAndCopy(self:FormatModel(candidate, "Registered monster (M)"))
+        if self.OnMarked then self.OnMarked(candidate) end
+    end
 end
 
 function MonsterInspector:Destroy()

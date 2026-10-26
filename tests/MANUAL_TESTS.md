@@ -3,8 +3,13 @@
 - [ ] Load the PR branch. A 680 x 500 rounded dark dashboard appears, with English text only and no emoji icons.
 - [ ] Verify Home, ESP, Monsters, Settings sidebar navigation works.
 - [ ] Header FPS and ping labels update after a second.
+- [ ] Player ESP and other-Nonmonster NPC ESP default OFF. Turn either ON and verify independently controlled overlays.
 - [ ] Toggle individual player boxes, names, health, and wall highlights; verify behavior.
-- [ ] Move to Monsters. NPCs with Humanoids are detected; check names, boxes, health, distance and highlights.
+- [ ] Move to Monsters. Only hostile-marked/name-matched monsters are detected automatically. Shopkeepers and plots no longer show monster outlines.
+- [ ] Targets > Show scenery lists nearby models. TRACK an unrecognized monster by exact name; verify monster ESP appears. UNTRACK removes its forced classification.
+- [ ] Point at a real NPC or creature and press M. It should register that model name and print a report; it must never register Terrain.
+- [ ] Auto Aim tab: enable camera aim; with a registered monster inside the FOV circle, camera gradually turns toward it (without firing). Check right-mouse-only mode, circle toggle, distance and smoothing controls.
+- [ ] With zero recognized monsters, auto aim should leave the camera unchanged.
 - [ ] Toggle Monster ESP and each monster subfeature independently.
 - [ ] Press I to hide both player and monster overlays; press I again to restore.
 - [ ] Press P while aiming at a monster (with F9 closed); it prints model path, tags and attributes. Clipboard receives the report where supported.

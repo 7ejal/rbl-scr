@@ -1,11 +1,12 @@
--- One NPC/monster visual record. Each rendering concern stays in its own class.
+-- Monster and optional other-NPC overlay; supports Models and tagged BaseParts.
 local MonsterESP = {}
 MonsterESP.__index = MonsterESP
 
-function MonsterESP.new(model, parent, classes, settings)
+function MonsterESP.new(instance, parent, classes, settings, category)
     local box = classes.BoxESP.new(parent)
     return setmetatable({
-        Model = model,
+        Model = instance,
+        Category = category,
         Settings = settings,
         Box = box,
         Name = classes.NameESP.new(box.Frame),
@@ -22,62 +23,74 @@ function MonsterESP:Hide()
 end
 
 function MonsterESP:Update(camera, localRoot)
-    local model = self.Model
-    if not model:IsDescendantOf(workspace) then
+    local target = self.Model
+    if not target:IsDescendantOf(workspace) then
         self:Hide()
         return
     end
 
-    local root = model.PrimaryPart
-        or model:FindFirstChild("HumanoidRootPart", true)
-        or model:FindFirstChildWhichIsA("BasePart", true)
-    if not root then
-        self:Hide()
-        return
+    local root
+    if target:IsA("BasePart") then
+        root = target
+    else
+        root = target.PrimaryPart
+            or target:FindFirstChild("HumanoidRootPart", true)
+            or target:FindFirstChildWhichIsA("BasePart", true)
     end
+    if not root then self:Hide() return end
 
-    local humanoid = model:FindFirstChildOfClass("Humanoid")
-    if humanoid and humanoid.Health <= 0 then
+    local humanoid = target:FindFirstChildOfClass("Humanoid")
+    if humanoid and humanoid.Health <= 0 then self:Hide() return end
+    if not humanoid and type(target:GetAttribute("Health")) == "number"
+        and target:GetAttribute("Health") <= 0 then
         self:Hide()
         return
     end
 
     local origin = localRoot and localRoot.Position or camera.CFrame.Position
     local distance = (origin - root.Position).Magnitude
-    if distance > self.Settings.MaxDistance then
-        self:Hide()
-        return
-    end
+    if distance > self.Settings.MaxDistance then self:Hide() return end
 
-    local color = Color3.fromRGB(255, 164, 65)
-    if self.Settings.MonsterHighlights then
-        self.Highlight:Update(model, color, true)
+    local isMonster = self.Category == "monster"
+    local color = isMonster and Color3.fromRGB(255, 164, 65)
+        or Color3.fromRGB(80, 180, 255)
+    local showHighlight = isMonster and self.Settings.MonsterHighlights
+        or (not isMonster and self.Settings.ShowHighlights)
+
+    if showHighlight then
+        self.Highlight:Update(target, color, true)
     else
         self.Highlight:Hide()
     end
 
-    local x, y, width, height = self.Projection.GetRect(camera, model)
+    local x, y, width, height = self.Projection.GetRect(camera, target)
     if not x then
         self.Box:Hide()
         return
     end
 
-    self.Box:Update(x, y, width, height, color, self.Settings.MonsterBoxes)
+    local showBoxes = isMonster and self.Settings.MonsterBoxes or
+        (not isMonster and self.Settings.ShowBoxes)
+    self.Box:Update(x, y, width, height, color, showBoxes)
 
-    local name = model:GetAttribute("DisplayName") or model.Name
-    self.Name:Update({DisplayName = tostring(name)}, self.Settings.MonsterNames)
-    self.Distance:Update(distance, self.Settings.MonsterDistance)
+    local value = target:GetAttribute("DisplayName") or target.Name
+    local showNames = isMonster and self.Settings.MonsterNames or
+        (not isMonster and self.Settings.ShowNames)
+    self.Name:Update({DisplayName = tostring(value)}, showNames)
 
+    self.Distance:Update(distance,
+        isMonster and self.Settings.MonsterDistance
+            or (not isMonster and self.Settings.ShowDistance))
+
+    local showHealth = isMonster and self.Settings.MonsterHealth
+        or (not isMonster and self.Settings.ShowHealth)
     if humanoid then
-        self.Health:Update(humanoid, self.Settings.MonsterHealth)
+        self.Health:Update(humanoid, showHealth)
     else
-        local health = model:GetAttribute("Health")
-        local maxHealth = model:GetAttribute("MaxHealth")
+        local health = target:GetAttribute("Health")
+        local maxHealth = target:GetAttribute("MaxHealth")
         if type(health) == "number" and type(maxHealth) == "number" then
-            self.Health:Update(
-                {Health = health, MaxHealth = maxHealth},
-                self.Settings.MonsterHealth
-            )
+            self.Health:Update({Health = health, MaxHealth = maxHealth}, showHealth)
         else
             self.Health.Background.Visible = false
         end

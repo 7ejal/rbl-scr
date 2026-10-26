@@ -75,6 +75,9 @@ function UIController.new(playerGui, settings, fov, janitorClass)
         OnToggle = nil,
         OnSettingChanged = nil,
         OnRescan = nil,
+        OnTargetsRefresh = nil,
+        OnTrackMonster = nil,
+        ShowScenery = false,
         MonsterCount = 0,
         ActivePage = "ESP",
         DraggingFOV = false,
@@ -166,7 +169,7 @@ function UIController.new(playerGui, settings, fov, janitorClass)
         BackgroundTransparency = 1,
     })
 
-    local tabs = {"Home", "ESP", "Monsters", "Settings"}
+    local tabs = {"Home", "ESP", "Auto Aim", "Monsters", "Targets", "Settings"}
     for index, name in ipairs(tabs) do
         local tab = button(sidebar, name, 10, 10 + (index - 1) * 53, 161, 44, COLOR.Sidebar)
         self.Tabs[name] = tab
@@ -193,9 +196,9 @@ function UIController.new(playerGui, settings, fov, janitorClass)
     corner(welcome, 11)
     local heading = label(welcome, "IVORY ESP", 20, 16, 400, 39, 21)
     heading.Font = Enum.Font.GothamBold
-    label(welcome, "Player and monster visual overlays", 20, 60, 414, 24, 14)
+    label(welcome, "Monster ESP and camera aim controls", 20, 60, 414, 24, 14)
     local description = label(welcome,
-        "I: toggle ESP. P: inspect aimed monster. O: list nearby monster models.",
+        "I: toggle ESP. P: inspect. O: scan models. M: mark target as monster.",
         20, 95, 415, 62, 13)
     description.TextWrapped = true
     description.TextTruncate = Enum.TextTruncate.None
@@ -223,10 +226,10 @@ function UIController.new(playerGui, settings, fov, janitorClass)
     local esp = self.Pages.ESP
     self:ToggleRow(esp, "All ESP overlays (I)", "Enabled", 0)
     self:ToggleRow(esp, "Player ESP", "PlayersEnabled", 50)
-    self:ToggleRow(esp, "Player boxes", "ShowBoxes", 100)
-    self:ToggleRow(esp, "Player names", "ShowNames", 150)
-    self:ToggleRow(esp, "Player health bars", "ShowHealth", 200)
-    self:ToggleRow(esp, "Player wall highlights", "ShowHighlights", 250)
+    self:ToggleRow(esp, "Other NPC ESP", "OtherNPCEnabled", 100)
+    self:ToggleRow(esp, "Monster ESP", "MonsterEnabled", 150)
+    self:ToggleRow(esp, "Player boxes", "ShowBoxes", 200)
+    self:ToggleRow(esp, "Player names", "ShowNames", 250)
 
     local rangePanel = create("Frame", esp, {
         Position = UDim2.fromOffset(0, 310),
@@ -269,7 +272,7 @@ function UIController.new(playerGui, settings, fov, janitorClass)
     corner(monsterPanel, 10)
     self.MonsterCountLabel = label(monsterPanel, "Detected monsters: 0", 16, 6, 420, 31, 14)
     self.MonsterCountLabel.Font = Enum.Font.GothamBold
-    local inspectTip = label(monsterPanel, "P: inspect target   O: list nearby models", 16, 42, 433, 25, 12)
+    local inspectTip = label(monsterPanel, "P: inspect   M: mark monster   O: list nearby", 16, 42, 433, 25, 12)
     inspectTip.TextColor3 = COLOR.Muted
     local monsterScan = button(monsterPanel, "Find models", 209, 70, 132, 28, COLOR.Row)
     self.Janitor:Add(monsterScan.MouseButton1Click:Connect(function()
@@ -278,6 +281,71 @@ function UIController.new(playerGui, settings, fov, janitorClass)
     local monsterRescan = button(monsterPanel, "Rescan", 350, 70, 95, 28, COLOR.Row)
     self.Janitor:Add(monsterRescan.MouseButton1Click:Connect(function()
         if self.OnRescan then self.OnRescan() end
+    end))
+
+    -- Aim tab: the camera rotates toward a detected monster, never toward players.
+    local aim = self.Pages["Auto Aim"]
+    self:ToggleRow(aim, "Monster auto aim (camera only)", "AimEnabled", 0)
+    self:ToggleRow(aim, "Require right mouse button", "AimHoldRightMouse", 50)
+    self:ToggleRow(aim, "Show targeting FOV circle", "AimShowCircle", 100)
+    local note = label(aim, "Target filter: registered and recognized monsters only", 10, 150, 445, 26, 12)
+    note.TextColor3 = COLOR.Muted
+
+    local function counterPanel(y, heading, key, amount, low, high, unit, digits)
+        local panel = create("Frame", aim, {
+            Position = UDim2.fromOffset(0, y),
+            Size = UDim2.fromOffset(461, 74),
+            BackgroundColor3 = COLOR.Sidebar,
+            BorderSizePixel = 0,
+        })
+        corner(panel, 8)
+        local valueLabel = label(panel, heading, 15, 3, 435, 29, 14)
+        local minus = button(panel, "-" .. tostring(amount) .. unit,
+            16, 34, 94, 32, COLOR.Row)
+        local plus = button(panel, "+" .. tostring(amount) .. unit,
+            119, 34, 94, 32, COLOR.Row)
+        self.AimLabels[key] = {Label = valueLabel, Title = heading, Unit = unit, Digits = digits}
+        local function change(delta)
+            local value = math.clamp(self.Settings[key] + delta, low, high)
+            if digits then value = math.floor(value * 100 + 0.5) / 100 end
+            self:ChangeSetting(key, value)
+        end
+        self.Janitor:Add(minus.MouseButton1Click:Connect(function() change(-amount) end))
+        self.Janitor:Add(plus.MouseButton1Click:Connect(function() change(amount) end))
+    end
+    self.AimLabels = {}
+    counterPanel(180, "Target FOV radius", "AimRadius", 20, 20, 400, " px")
+    counterPanel(261, "Target distance", "AimDistance", 50, 50, 1500, " studs")
+    counterPanel(342, "Aim smoothing", "AimSmoothness", 0.05, 0.05, 1, "", true)
+
+    -- Targets tab: users can register the real model name without guessing IDs.
+    local targets = self.Pages.Targets
+    local helper = label(targets,
+        "Track a nearby NPC model as a monster. All models with its name follow.",
+        8, 2, 445, 43, 12)
+    helper.TextWrapped = true
+    helper.TextTruncate = Enum.TextTruncate.None
+    local refreshTargets = button(targets, "Refresh list", 0, 46, 150, 35, COLOR.Row)
+    local allTargets = button(targets, "Show scenery: OFF", 160, 46, 190, 35, COLOR.Row)
+    local scroll = create("ScrollingFrame", targets, {
+        Name = "TargetList",
+        Position = UDim2.fromOffset(0, 91),
+        Size = UDim2.fromOffset(461, 317),
+        BackgroundColor3 = COLOR.Sidebar,
+        BorderSizePixel = 0,
+        ScrollBarThickness = 4,
+        ScrollingDirection = Enum.ScrollingDirection.Y,
+        CanvasSize = UDim2.fromOffset(0, 0),
+    })
+    corner(scroll, 9)
+    self.TargetList = scroll
+    self.Janitor:Add(refreshTargets.MouseButton1Click:Connect(function()
+        if self.OnTargetsRefresh then self.OnTargetsRefresh(self.ShowScenery) end
+    end))
+    self.Janitor:Add(allTargets.MouseButton1Click:Connect(function()
+        self.ShowScenery = not self.ShowScenery
+        allTargets.Text = self.ShowScenery and "Show scenery: ON" or "Show scenery: OFF"
+        if self.OnTargetsRefresh then self.OnTargetsRefresh(self.ShowScenery) end
     end))
 
     -- Settings tab: functional FOV slider and additional player preferences.
@@ -316,11 +384,11 @@ function UIController.new(playerGui, settings, fov, janitorClass)
         ZIndex = 3,
     })
     corner(self.Knob, 11)
-    self:ToggleRow(settingsPage, "Team colors", "TeamColors", 137)
-    self:ToggleRow(settingsPage, "Player distance labels", "ShowDistance", 187)
-    label(settingsPage, "Overlay toggle: I", 12, 249, 430, 25, 14)
-    label(settingsPage, "Inspect target: P   Nearby model list: O", 12, 281, 430, 25, 14)
-    local resetFOV = button(settingsPage, "Reset camera FOV", 0, 334, 220, 44, COLOR.Row)
+    self:ToggleRow(settingsPage, "Team colors", "TeamColors", 132)
+    self:ToggleRow(settingsPage, "Player distance labels", "ShowDistance", 180)
+    self:ToggleRow(settingsPage, "Player health bars", "ShowHealth", 228)
+    self:ToggleRow(settingsPage, "Player wall highlights", "ShowHighlights", 276)
+    local resetFOV = button(settingsPage, "Reset camera FOV", 0, 340, 220, 44, COLOR.Row)
     self.Janitor:Add(resetFOV.MouseButton1Click:Connect(function()
         self.FOV:SetFOV(self.FOV.Original)
         self:DrawFOV()
@@ -403,7 +471,7 @@ function UIController.new(playerGui, settings, fov, janitorClass)
 
     self:DrawFOV()
     self:Refresh()
-    self:ShowPage("ESP")
+    self:ShowPage("Monsters")
     return self
 end
 
@@ -427,7 +495,8 @@ function UIController:ToggleRow(parent, text, key, y)
 
     label(row, text, 19, 1, 350, 42, 13)
     local toggle = button(row, "OFF", 389, 5, 62, 34, COLOR.Off)
-    self.ToggleButtons[key] = toggle
+    self.ToggleButtons[key] = self.ToggleButtons[key] or {}
+    table.insert(self.ToggleButtons[key], toggle)
     self.Janitor:Add(toggle.MouseButton1Click:Connect(function()
         self:ChangeSetting(key, not self.Settings[key])
     end))
@@ -444,6 +513,9 @@ end
 
 function UIController:ShowPage(name)
     self.ActivePage = name
+    if name == "Targets" and self.OnTargetsRefresh then
+        self.OnTargetsRefresh(self.ShowScenery)
+    end
     for pageName, page in pairs(self.Pages) do
         page.Visible = pageName == name
     end
@@ -455,14 +527,22 @@ function UIController:ShowPage(name)
 end
 
 function UIController:Refresh()
-    for key, toggle in pairs(self.ToggleButtons) do
+    for key, toggles in pairs(self.ToggleButtons) do
         local enabled = self.Settings[key] == true
-        toggle.Text = enabled and "ON" or "OFF"
-        toggle.BackgroundColor3 = enabled and COLOR.On or COLOR.Off
-        toggle.TextColor3 = enabled and COLOR.Text or COLOR.Muted
+        for _, toggle in ipairs(toggles) do
+            toggle.Text = enabled and "ON" or "OFF"
+            toggle.BackgroundColor3 = enabled and COLOR.On or COLOR.Off
+            toggle.TextColor3 = enabled and COLOR.Text or COLOR.Muted
+        end
     end
     self.RangeLabel.Text = "ESP detection distance: "
         .. tostring(self.Settings.MaxDistance) .. " studs"
+    if self.AimLabels then
+        for key, entry in pairs(self.AimLabels) do
+            local value = self.Settings[key]
+            entry.Label.Text = entry.Title .. ": " .. tostring(value) .. entry.Unit
+        end
+    end
 end
 
 function UIController:SetESPEnabled(enabled)
@@ -497,6 +577,46 @@ function UIController:DrawFOV()
     self.Fill.Size = UDim2.fromScale(fraction, 1)
     self.Knob.Position = UDim2.fromScale(fraction, 0.5)
     self.FOVLabel.Text = "Camera FOV: " .. tostring(value)
+end
+
+function UIController:RenderTargets(choices)
+    if not self.TargetList then return end
+    for _, child in ipairs(self.TargetList:GetChildren()) do
+        if child:IsA("GuiObject") then child:Destroy() end
+    end
+
+    if #choices == 0 then
+        label(self.TargetList, "No nearby NPC models. Enable Show scenery or press O.",
+            15, 12, 430, 40, 12)
+    end
+
+    for i, entry in ipairs(choices) do
+        local y = (i - 1) * 49 + 5
+        local row = create("Frame", self.TargetList, {
+            Name = "Target" .. i,
+            Position = UDim2.fromOffset(5, y),
+            Size = UDim2.fromOffset(447, 44),
+            BackgroundColor3 = COLOR.Row,
+            BorderSizePixel = 0,
+        })
+        corner(row, 6)
+        local name = label(row, entry.Name, 10, 2, 288, 24, 12)
+        name.Font = Enum.Font.GothamBold
+        local detail = label(row, tostring(math.floor(entry.Distance)) ..
+            " studs | " .. tostring(entry.Category), 10, 24, 284, 17, 11)
+        detail.TextColor3 = COLOR.Muted
+
+        local action = entry.Registered and "UNTRACK" or "TRACK"
+        local track = button(row, action, 345, 6, 94, 32, COLOR.Off)
+        track.MouseButton1Click:Connect(function()
+            if self.OnTrackMonster then
+                self.OnTrackMonster(entry.Instance, not entry.Registered)
+            end
+            if self.OnTargetsRefresh then self.OnTargetsRefresh(self.ShowScenery) end
+        end)
+    end
+    self.TargetList.CanvasSize = UDim2.fromOffset(0,
+        math.max(317, #choices * 49 + 10))
 end
 
 function UIController:Destroy()
