@@ -33,6 +33,7 @@ function Car.new(settings,inputClass)
         NoResponse=false, NoResponseSince=nil, MotionConfirmed=false,
         LastPulseAt=0, UISRecognizesW=false, GearHint="not replicated",
         Navigator=nil, ResolvedInputMode="Keyboard",
+        Adapter=nil,
         LastGearCheck=0,
     },Car)
 end
@@ -88,6 +89,7 @@ function Car:RetryInput()
 end
 function Car:InputReleaseManual()
     self.Input:ReleaseAll()
+    if self.Adapter then self.Adapter:Stop() end
     self:Neutralize(self.Seat)
 end
 function Car:Stop()
@@ -187,6 +189,7 @@ function Car:Step()
     end
     if self:ManualInput() then
         self.Input:ReleaseAll()
+        if self.Adapter then self.Adapter:Stop() end
         self:Neutralize(self.Seat)
         self.LastStatus="Manual driving; autopilot paused"
         return
@@ -199,6 +202,7 @@ function Car:Step()
     end
     if not waypoint then
         self.Input:ReleaseAll()
+        if self.Adapter then self.Adapter:Stop() end
         self:Neutralize(seat)
         self.LastStatus="Off-road: no verified safe approach"
         return
@@ -231,7 +235,8 @@ function Car:Step()
         local profiles=s.HuntCarProfiles or {}
         mode=profiles[profileKey(self.Vehicle)] or "Keyboard"
     end
-    if mode~="Keyboard" and mode~="Seat" then mode="Keyboard" end
+    if mode~="Keyboard" and mode~="Seat"
+        and mode~="ControlsValue" then mode="Keyboard" end
     self.ResolvedInputMode=mode
 
     if dist<=stopDist+buffer then
@@ -280,7 +285,7 @@ function Car:Step()
     -- received the input. Observe real speed, try pulse and then alternate
     -- backend once, and stop retrying if nothing moves.
     self.UISRecognizesW=UIS:IsKeyDown(Enum.KeyCode.W)
-    if mode=="Keyboard" and keys.W then
+    if (mode=="Keyboard" or mode=="ControlsValue") and keys.W then
         if speedKmh>3 then
             self.MotionConfirmed=true
             self.NoResponseSince=nil
@@ -291,6 +296,7 @@ function Car:Step()
             if elapsed>=9 then
                 self.NoResponse=true
                 self.Input:ReleaseAll()
+                if self.Adapter then self.Adapter:Stop() end
                 self.LastStatus="No drive response (0 km/h); check gear N / Drive"
                 return
             end
@@ -300,6 +306,7 @@ function Car:Step()
     end
     if self.NoResponse then
         self.Input:ReleaseAll()
+        if self.Adapter then self.Adapter:Stop() end
         self.LastStatus="Car not responding: shift into Drive; retry input"
         return
     end
@@ -338,7 +345,19 @@ function Car:Step()
         keys={S=true}
         self.LastStatus="Short reverse to unstick"
     end
-    if mode=="Seat" then
+    if mode=="ControlsValue" then
+        self.Input:ReleaseAll()
+        if not s.HuntAdapterEnabled or not self.Adapter
+            or not self.Adapter:Available(self.Vehicle) then
+            self.LastStatus="Typed car adapter unavailable; choose Keyboard"
+            return
+        end
+        local steer=(keys.D and 1 or 0)-(keys.A and 1 or 0)
+        local throttle=(keys.W and 1 or 0)-(keys.S and 1 or 0)
+        local ok,why=self.Adapter:Apply(self.Vehicle,seat,throttle,steer)
+        self.LastStatus=ok and "Local Controls written; motion unverified"
+            or "Custom adapter failed: "..tostring(why)
+    elseif mode=="Seat" then
         self.Input:ReleaseAll()
         if not seat:IsA("VehicleSeat") then
             self.LastStatus="Seat mode requires VehicleSeat; select Keyboard"

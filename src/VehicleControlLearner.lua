@@ -194,6 +194,65 @@ function Learner:Calibrate()
         end
     end)
 end
+-- Manual vehicle test bench: measures real inputs and motion over 10 seconds.
+-- This method never injects input; the existing explicit Calibrate trial can
+-- independently test synthetic input backends in a safe open area.
+function Learner:RunBench()
+    if self.Running then self:Tell("Finish/cancel the existing test") return end
+    local seat,car=ownedSeat()
+    if not seat then self:Tell("Sit in your own driver seat first") return end
+    if self.Settings.AutoHuntEnabled then
+        self:Tell("Turn Auto Hunt OFF before Test Bench") return
+    end
+    self.Running=true
+    self.Generation=self.Generation+1
+    local token=self.Generation
+    self:Tell("10s manual bench: drive, steer and brake yourself")
+    task.spawn(function()
+        local prevSpeed=speed(seat)
+        local maxSpeed=prevSpeed
+        local accel,brake,maxYaw=0,0,0
+        local prevForward=seat.CFrame.LookVector
+        local inputCounts={W=0,S=0,A=0,D=0}
+        for step=1,50 do
+            if token~=self.Generation then return end
+            if ownedSeat()~=seat then
+                self.Running=false;self:Tell("Bench stopped: driver seat changed")
+                return
+            end
+            task.wait(0.2)
+            local nextSpeed=speed(seat)
+            maxSpeed=math.max(maxSpeed,nextSpeed)
+            local delta=(nextSpeed-prevSpeed)/0.2
+            accel=math.max(accel,delta)
+            brake=math.min(brake,delta)
+            local forward=seat.CFrame.LookVector
+            local yaw=math.acos(math.clamp(
+                prevForward:Dot(forward),-1,1))/0.2
+            maxYaw=math.max(maxYaw,yaw)
+            prevForward=forward;prevSpeed=nextSpeed
+            for k in pairs(inputCounts) do
+                if UIS:IsKeyDown(Enum.KeyCode[k]) then
+                    inputCounts[k]=inputCounts[k]+1
+                end
+            end
+        end
+        if token~=self.Generation then return end
+        self.Report=string.format(
+            "Manual test bench: %s\nMax speed: %.1f km/h\n"
+                .. "Peak acceleration: +%.2f studs/s^2\n"
+                .. "Peak braking: %.2f studs/s^2\n"
+                .. "Peak steering: %.2f radians/s\n"
+                .. "Physical W/S/A/D seen: %d/%d/%d/%d frames\n"
+                .. "Gear: %s\nSynthetic input result: test with Calibrate separately",
+            car.Name,maxSpeed*1.008,accel,brake,maxYaw,
+            inputCounts.W,inputCounts.S,inputCounts.A,inputCounts.D,
+            gear(seat) or gear(car) or "not exposed")
+        self.Running=false
+        self:Tell("Manual vehicle test bench completed")
+    end)
+end
+
 function Learner:Destroy()
     self:Cancel()
     self.OnUpdate=nil

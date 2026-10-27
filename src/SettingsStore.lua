@@ -20,11 +20,16 @@ local KEYS = {
     "HuntCarTargetKmh", "HuntCarObstacleBrake",
     "HuntCarInvertSteering",
     "HuntCarInputMode", "HuntCarTurnDeadzone",
+    "HuntAdapterEnabled", "HuntManualSkipSeconds",
     "HuntCarCruiseEnabled", "HuntOffroadEnabled",
     "HuntRouteEnabled", "HuntTargetLockEnabled",
     "DhabTierColorsEnabled", "HighlightLongestDhab",
     "HuntHUDEnabled", "TargetArrowEnabled",
     "HeatmapEnabled", "HeatmapCellSize",
+    "DhabAlertsEnabled", "DhabAlertTier", "DhabAlertLength",
+    "HuntHotkey", "NextTargetHotkey", "RadarHotkey",
+    "MenuHotkey", "StopHotkey",
+    "GuiCompactEnabled", "GuiScale",
     "HuntScoreLength", "HuntScoreSize",
     "HuntScoreDistance", "HuntAvoidRadius",
     "AimPredictionEnabled", "AimLeadSeconds", "PerformanceMode",
@@ -93,9 +98,16 @@ function Store:Load()
                 end
             elseif key == "HuntCarInputMode" then
                 if value == "Keyboard" or value == "Seat"
-                    or value == "Auto" then
+                    or value == "Auto" or value == "ControlsValue" then
                     default[key] = value
                 end
+            elseif key == "HuntHotkey" or key == "NextTargetHotkey"
+                or key == "RadarHotkey" or key == "MenuHotkey"
+                or key == "StopHotkey" then
+                local valid={H=true,J=true,K=true,L=true,B=true,
+                    N=true,R=true,T=true,Y=true,U=true,
+                    F6=true,F7=true,F9=true,F10=true}
+                if valid[value] then default[key]=value end
             elseif key == "AutoShootInputMode" then
                 if value == "Tool" or value == "Mouse" then
                     default[key] = value
@@ -104,6 +116,41 @@ function Store:Load()
                 default[key] = value
             end
         end
+    end
+    -- Explicit named user slots with a constrained key list and type checks.
+    if type(data.ConfigSlots)=="table" then
+        local slots={}
+        local allowed={
+            "AutoHuntEnabled","HuntCarEnabled","HuntAutoShoot",
+            "HuntCarTargetKmh","HuntCarInputMode","HuntStopDistance",
+            "HuntCarStopDistance","HuntSearchDistance","HuntPriority",
+            "HuntTierT1","HuntTierT2","HuntTierT3","HuntTierT4",
+            "HuntTierT5","HuntTierT6","AutoShootEnabled","AimEnabled",
+            "RadarEnabled","PerformanceMode","DhabStatsEnabled",
+            "DhabTierColorsEnabled","HuntHUDEnabled",
+        }
+        for _,name in ipairs({"Custom A","Custom B"}) do
+            local entry=data.ConfigSlots[name]
+            if type(entry)=="table" then
+                local slot={}
+                for _,key in ipairs(allowed) do
+                    local value=entry[key]
+                    if type(value)==type(self.Settings[key]) then
+                        if type(value)=="number" then
+                            if value==value and math.abs(value)<5000 then
+                                slot[key]=value
+                            end
+                        elseif type(value)=="string" then
+                            if #value<=30 then slot[key]=value end
+                        else
+                            slot[key]=value
+                        end
+                    end
+                end
+                slots[name]=slot
+            end
+        end
+        self.Settings.ConfigSlots=slots
     end
     -- Car-name input profiles have separate validation; no arbitrary table
     -- loading into runtime settings and no trusted code in profile values.
@@ -128,6 +175,9 @@ function Store:Load()
         HuntStopDistance = {10, 100}, HuntSearchDistance = {100, 2000},
         HuntShootDistance = {10, 500}, HuntMinLength = {0, 12},
         HuntCarStopDistance = {25, 125}, HuntCarTargetKmh = {30, 180},
+        GuiScale = {0.65, 1.25},
+        HuntManualSkipSeconds = {15, 600}, DhabAlertTier = {1, 6},
+        DhabAlertLength = {0, 15},
         RadarRange = {100, 2000}, CameraFOV = {0, 120},
         HeatmapCellSize = {50, 350},
         HuntCarTurnDeadzone = {0.05, 0.5},
@@ -164,6 +214,7 @@ function Store:SaveNow()
             end
         end
         data.HuntCarProfiles = profiles
+        data.ConfigSlots = self.Settings.ConfigSlots or {}
     end
     local ok, err = pcall(function()
         write(self.Filename, HttpService:JSONEncode(data))

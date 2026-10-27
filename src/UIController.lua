@@ -112,13 +112,25 @@ function UIController.new(playerGui, settings, fov, janitorClass)
         Transparency = 0.4,
     })
     self.Window = window
+    self.UserScale=math.clamp(settings.GuiScale or 1,0.65,1.25)
+    self.MiniButton=create("TextButton",self.Gui,{
+        Name="7jlMiniControl",Size=UDim2.fromOffset(126,36),
+        Position=UDim2.fromOffset(22,72),
+        BackgroundColor3=COLOR.Sidebar,TextColor3=COLOR.Text,
+        Font=Enum.Font.GothamBold,TextSize=13,Text="7jl | OPEN",
+        BorderSizePixel=0,Visible=false,
+    })
+    corner(self.MiniButton,8)
+    self.Janitor:Add(self.MiniButton.MouseButton1Click:Connect(function()
+        self:ToggleWindow()
+    end))
 
     local scale = create("UIScale", window, {Scale = 1})
     local function fitScreen()
         local camera = workspace.CurrentCamera
         if not camera then return end
         local viewport = camera.ViewportSize
-        scale.Scale = math.min(1,
+        scale.Scale = math.min(self.UserScale,
             (viewport.X - 24) / 680,
             (viewport.Y - 24) / 500
         )
@@ -141,6 +153,16 @@ function UIController.new(playerGui, settings, fov, janitorClass)
     local hideBtn = button(header, "HIDE [CTRL]", 319, 13, 119, 36, COLOR.Sidebar)
     self.Janitor:Add(hideBtn.MouseButton1Click:Connect(function()
         self:ToggleWindow()
+    end))
+    local smaller=button(header,"-",265,16,24,30,COLOR.Row)
+    local bigger=button(header,"+",292,16,24,30,COLOR.Row)
+    self.Janitor:Add(smaller.MouseButton1Click:Connect(function()
+        self.UserScale=math.clamp(self.UserScale-0.1,0.65,1.25)
+        self:ChangeSetting("GuiScale",self.UserScale)
+    end))
+    self.Janitor:Add(bigger.MouseButton1Click:Connect(function()
+        self.UserScale=math.clamp(self.UserScale+0.1,0.65,1.25)
+        self:ChangeSetting("GuiScale",self.UserScale)
     end))
     self.Janitor:Add(UIS.InputBegan:Connect(function(input, processed)
         if processed or UIS:GetFocusedTextBox() then return end
@@ -176,9 +198,18 @@ function UIController.new(playerGui, settings, fov, janitorClass)
         BorderSizePixel = 0,
         ScrollBarThickness = 3,
         ScrollingDirection = Enum.ScrollingDirection.Y,
-        CanvasSize = UDim2.fromOffset(0, 720),
+        CanvasSize = UDim2.fromOffset(0, 1100),
     })
     corner(sidebar, 12)
+    local sidebarSearch=create("TextBox",sidebar,{
+        Name="MenuSearch",Position=UDim2.fromOffset(10,8),
+        Size=UDim2.fromOffset(159,33),
+        BackgroundColor3=COLOR.Row,TextColor3=COLOR.Text,
+        PlaceholderText="Search 7jl pages",
+        PlaceholderColor3=COLOR.Muted,ClearTextOnFocus=false,
+        Text="",Font=Enum.Font.Gotham,TextSize=12,BorderSizePixel=0,
+    })
+    corner(sidebarSearch,8)
 
     local mainArea = create("Frame", window, {
         Name = "Content",
@@ -188,11 +219,11 @@ function UIController.new(playerGui, settings, fov, janitorClass)
     })
 
     local tabs = {"Home", "ESP", "Auto Aim", "Auto Shoot", "Auto Hunt",
-        "Vehicle Lab", "Hunt Tools", "Radar", "Statistics",
-        "Monsters", "HandCatch", "Cars", "Quality",
-        "Targets", "Settings", "Advanced", "Diagnostics"}
+        "Vehicle Lab", "Car Inspector", "Hunt Tools", "Dhab Explorer",
+        "Radar", "Statistics", "Monsters", "HandCatch", "Cars", "Quality",
+        "Targets", "Profiles", "Settings", "Advanced", "Diagnostics"}
     for index, name in ipairs(tabs) do
-        local tab = button(sidebar, name, 10, 10 + (index - 1) * 37, 161, 32, COLOR.Sidebar)
+        local tab = button(sidebar, name, 10, 48 + (index - 1) * 37, 161, 32, COLOR.Sidebar)
         self.Tabs[name] = tab
         self.Janitor:Add(tab.MouseButton1Click:Connect(function()
             self:ShowPage(name)
@@ -201,6 +232,8 @@ function UIController.new(playerGui, settings, fov, janitorClass)
             or name == "Advanced" or name == "Statistics"
             or name == "Diagnostics"
             or name == "Vehicle Lab" or name == "Hunt Tools"
+            or name == "Car Inspector" or name == "Dhab Explorer"
+            or name == "Profiles" or name == "Radar"
         -- ScrollBarThickness/CanvasSize only exist on ScrollingFrame.
         -- Passing ScrollBarThickness = 0 to a regular Frame errors at load.
         local pageProps = {
@@ -216,9 +249,13 @@ function UIController.new(playerGui, settings, fov, janitorClass)
             pageProps.CanvasSize = UDim2.fromOffset(0,
                 name == "Auto Hunt" and 1680
                     or (name == "Advanced" and 1180
-                    or (name == "Diagnostics" and 950
+                    or (name == "Diagnostics" and 1100
                     or (name == "Vehicle Lab" and 850
-                    or (name == "Hunt Tools" and 890 or 600)))))
+                    or (name == "Hunt Tools" and 920
+                    or (name == "Car Inspector" and 950
+                    or (name == "Dhab Explorer" and 1050
+                    or (name == "Profiles" and 1170
+                    or (name == "Radar" and 650 or 600)))))))))
         end
         local page = create(scrollable and "ScrollingFrame" or "Frame",
             mainArea, pageProps)
@@ -521,6 +558,48 @@ function UIController.new(playerGui, settings, fov, janitorClass)
             self.Settings.AutoShootMaxDistance + 10, 10, 500))
     end))
 
+    -- GUI V2: categories and instant page search.
+    local groups={
+        Core={"Home","Settings","Profiles","Statistics"},
+        Hunting={"Auto Aim","Auto Shoot","Auto Hunt","Hunt Tools",
+            "Dhab Explorer","Advanced"},
+        Tracking={"ESP","Monsters","HandCatch","Cars","Quality","Radar",
+            "Targets"},
+        Tools={"Vehicle Lab","Car Inspector","Diagnostics"},
+    }
+    local order={"Core","Hunting","Tracking","Tools"}
+    self.GroupOpen={Core=true,Hunting=true,Tracking=true,Tools=true}
+    local headers={}
+    for _,group in ipairs(order) do
+        local btn=button(sidebar,group,10,0,159,23,COLOR.Row)
+        headers[group]=btn
+        self.Janitor:Add(btn.MouseButton1Click:Connect(function()
+            self.GroupOpen[group]=not self.GroupOpen[group]
+            if self.ReflowSidebar then self.ReflowSidebar() end
+        end))
+    end
+    local function reflow()
+        local term=sidebarSearch.Text:lower()
+        local y=48
+        for _,group in ipairs(order) do
+            headers[group].Position=UDim2.fromOffset(10,y)
+            headers[group].Text=(self.GroupOpen[group] and "v " or "> ")..group
+            y=y+27
+            for _,name in ipairs(groups[group]) do
+                local tab=self.Tabs[name]
+                local matches=term=="" or name:lower():find(term,1,true)
+                local show=matches and (self.GroupOpen[group] or term~="")
+                tab.Visible=show
+                if show then tab.Position=UDim2.fromOffset(10,y);y=y+36 end
+            end
+            y=y+5
+        end
+        sidebar.CanvasSize=UDim2.fromOffset(0,math.max(420,y+8))
+    end
+    self.ReflowSidebar=reflow
+    self.Janitor:Add(sidebarSearch:GetPropertyChangedSignal("Text"):Connect(reflow))
+    reflow()
+
     -- Auto Hunt: pathfinding movement + the existing live-Dhab aim/shoot.
     -- Does not teleport, equip Tools, fire remotes, target cars or collect loot.
     local hunt = self.Pages["Auto Hunt"]
@@ -629,7 +708,8 @@ function UIController.new(playerGui, settings, fov, janitorClass)
         "Car input: Keyboard W/A/S/D", 0, 1466, 326, 39, COLOR.Row)
     self.Janitor:Add(self.CarInputButton.MouseButton1Click:Connect(function()
         local nextMode = ({Auto="Keyboard",Keyboard="Seat",
-            Seat="Auto"})[self.Settings.HuntCarInputMode] or "Auto"
+            Seat="ControlsValue",ControlsValue="Auto"})
+            [self.Settings.HuntCarInputMode] or "Auto"
         self:ChangeSetting("HuntCarInputMode", nextMode)
     end))
 
@@ -663,6 +743,24 @@ function UIController.new(playerGui, settings, fov, janitorClass)
     radarHint.TextTruncate = Enum.TextTruncate.None
     radarHint.TextYAlignment = Enum.TextYAlignment.Top
     self:ToggleRow(radarPage, "Observed Dhab heatmap", "HeatmapEnabled", 269)
+    self:ToggleRow(radarPage, "Real-Tier / long-Dhab alerts",
+        "DhabAlertsEnabled", 376)
+    local alertTier=button(radarPage,"Alert Tier: T3+",0,431,218,36,COLOR.Row)
+    local alertLength=button(radarPage,"Alert Length: 5 studs",
+        228,431,226,36,COLOR.Row)
+    self.AlertTierButton=alertTier;self.AlertLengthButton=alertLength
+    self.Janitor:Add(alertTier.MouseButton1Click:Connect(function()
+        self:ChangeSetting("DhabAlertTier",
+            self.Settings.DhabAlertTier>=6 and 1
+                or self.Settings.DhabAlertTier+1)
+    end))
+    self.Janitor:Add(alertLength.MouseButton1Click:Connect(function()
+        self:ChangeSetting("DhabAlertLength",
+            self.Settings.DhabAlertLength>=12 and 0
+                or self.Settings.DhabAlertLength+1)
+    end))
+    self.AlertStatus=label(radarPage,"Alerts OFF",0,479,441,50,12)
+    self.AlertStatus.TextWrapped=true
     local heatReset=button(radarPage,"Clear observed locations",
         0,324,235,36,COLOR.Row)
     self.Janitor:Add(heatReset.MouseButton1Click:Connect(function()
@@ -748,6 +846,28 @@ function UIController.new(playerGui, settings, fov, janitorClass)
         "HuntHUDEnabled",341)
     self:ToggleRow(toolsPage,"Off-screen target arrow",
         "TargetArrowEnabled",391)
+    local skipTarget=button(toolsPage,"Skip current Dhab (cooldown)",
+        0,568,280,40,COLOR.Row)
+    self.Janitor:Add(skipTarget.MouseButton1Click:Connect(function()
+        if self.OnSkipDhab then self.OnSkipDhab() end
+    end))
+    local clearSkips=button(toolsPage,"Clear skipped Dhab",
+        0,618,280,40,COLOR.Row)
+    self.Janitor:Add(clearSkips.MouseButton1Click:Connect(function()
+        if self.OnClearSkips then self.OnClearSkips() end
+    end))
+    self.SkipDuration=label(toolsPage,"Cooldown: 90 seconds",
+        0,671,450,22,13)
+    local skipLess=button(toolsPage,"-30s",0,702,138,34,COLOR.Row)
+    local skipMore=button(toolsPage,"+30s",145,702,138,34,COLOR.Row)
+    self.Janitor:Add(skipLess.MouseButton1Click:Connect(function()
+        self:ChangeSetting("HuntManualSkipSeconds",math.clamp(
+            self.Settings.HuntManualSkipSeconds-30,15,600))
+    end))
+    self.Janitor:Add(skipMore.MouseButton1Click:Connect(function()
+        self:ChangeSetting("HuntManualSkipSeconds",math.clamp(
+            self.Settings.HuntManualSkipSeconds+30,15,600))
+    end))
     local toolsHelp=label(toolsPage,
         "Tiers are actual model attributes, not guessed rarity. Arrow appears only with a locked or actively hunted live Dhab. Radar has the observation heatmap toggle.",
         8,447,442,110,12)
@@ -881,6 +1001,14 @@ function UIController.new(playerGui, settings, fov, janitorClass)
     self.Janitor:Add(retryCar.MouseButton1Click:Connect(function()
         if self.OnRetryCarInput then self.OnRetryCarInput() end
     end))
+    local exportLog=button(diagnostics,"Copy/export debug log",
+        0,807,235,40,COLOR.Row)
+    self.Janitor:Add(exportLog.MouseButton1Click:Connect(function()
+        if self.OnExportLog then self.OnExportLog() end
+    end))
+    self.DebugExportStatus=label(diagnostics,
+        "No debug log exported",245,807,208,45,12)
+    self.DebugExportStatus.TextWrapped=true
     self.DiagnosticLabel=label(diagnostics,
         "Press Refresh diagnostics to inspect the gear and keyboard input.",
         7,105,448,670,12)
@@ -888,6 +1016,111 @@ function UIController.new(playerGui, settings, fov, janitorClass)
     self.DiagnosticLabel.TextTruncate=Enum.TextTruncate.None
     self.DiagnosticLabel.TextYAlignment=Enum.TextYAlignment.Top
     self.DiagnosticLabel.Font=Enum.Font.Code
+
+
+    -- Car Inspector: read-only vehicle controls/gear and explicit manual bench.
+    local inspection=self.Pages["Car Inspector"]
+    local inspect=button(inspection,"Inspect current vehicle",0,0,235,39,COLOR.Row)
+    self.Janitor:Add(inspect.MouseButton1Click:Connect(function()
+        if self.OnInspectCar then self.OnInspectCar() end
+    end))
+    local bench=button(inspection,"Manual test bench (10s)",
+        0,51,260,39,COLOR.Row)
+    self.Janitor:Add(bench.MouseButton1Click:Connect(function()
+        if self.OnVehicleBench then self.OnVehicleBench() end
+    end))
+    self:ToggleRow(inspection,"Enable typed local controls adapter",
+        "HuntAdapterEnabled",101)
+    local carNote=label(inspection,
+        "Adapter supports NumberValue Throttle and Steer inside Controls/Input folders. Only turn on for your own compatible car. No game remotes, no automatic gear changes.",
+        9,153,438,89,12)
+    carNote.TextWrapped=true;carNote.TextYAlignment=Enum.TextYAlignment.Top
+    carNote.TextColor3=COLOR.Muted
+    self.CarInspectorLabel=label(inspection,
+        "Inspect your occupied car for replicated controls and gear.",
+        9,255,442,525,12)
+    self.CarInspectorLabel.TextWrapped=true
+    self.CarInspectorLabel.TextTruncate=Enum.TextTruncate.None
+    self.CarInspectorLabel.TextYAlignment=Enum.TextYAlignment.Top
+    self.CarInspectorLabel.Font=Enum.Font.Code
+
+    -- Live sorted Dhab Explorer with direct target selection.
+    local explorer=self.Pages["Dhab Explorer"]
+    local refresh=button(explorer,"Refresh live Dhab",0,0,145,34,COLOR.Row)
+    self.ExplorerSort=button(explorer,"Sort: Distance",153,0,146,34,COLOR.Row)
+    self.ExplorerTier=button(explorer,"Tier: All",307,0,151,34,COLOR.Row)
+    self.Janitor:Add(refresh.MouseButton1Click:Connect(function()
+        if self.OnExplorerRefresh then self.OnExplorerRefresh() end
+    end))
+    self.Janitor:Add(self.ExplorerSort.MouseButton1Click:Connect(function()
+        if self.OnExplorerSort then self.OnExplorerSort() end
+    end))
+    self.Janitor:Add(self.ExplorerTier.MouseButton1Click:Connect(function()
+        if self.OnExplorerTier then self.OnExplorerTier() end
+    end))
+    self.ExplorerSearch=create("TextBox",explorer,{
+        Position=UDim2.fromOffset(0,42),Size=UDim2.fromOffset(457,34),
+        BackgroundColor3=COLOR.Row,TextColor3=COLOR.Text,
+        PlaceholderText="Filter Dhab name...",Text="",ClearTextOnFocus=false,
+        Font=Enum.Font.Gotham,TextSize=13,BorderSizePixel=0,
+    })
+    corner(self.ExplorerSearch,7)
+    self.Janitor:Add(self.ExplorerSearch:GetPropertyChangedSignal("Text"):Connect(function()
+        if self.OnExplorerSearch then
+            self.OnExplorerSearch(self.ExplorerSearch.Text)
+        end
+    end))
+    self.ExplorerInfo=label(explorer,"Refresh to list live Dhab",
+        0,81,446,28,12)
+    self.ExplorerList=create("Frame",explorer,{
+        Position=UDim2.fromOffset(0,117),
+        Size=UDim2.fromOffset(457,850),BackgroundTransparency=1,
+    })
+
+    -- Named hunting configurations. Loading a profile never automatically hunts.
+    local profilesPage=self.Pages.Profiles
+    label(profilesPage,"Switch hunting profiles (auto actions remain OFF)",
+        4,3,443,36,13)
+    for i,name in ipairs({"Car Hunting","On Foot","High Tier","Low FPS",
+        "Custom A","Custom B"}) do
+        local y=47+(i-1)*54
+        local selectProfile=button(profilesPage,"Load "..name,
+            0,y,215,39,COLOR.Row)
+        self.Janitor:Add(selectProfile.MouseButton1Click:Connect(function()
+            if self.OnConfigLoad then self.OnConfigLoad(name) end
+        end))
+        if name=="Custom A" or name=="Custom B" then
+            local saveProfile=button(profilesPage,"Save "..name,
+                226,y,225,39,COLOR.Row)
+            self.Janitor:Add(saveProfile.MouseButton1Click:Connect(function()
+                if self.OnConfigSave then self.OnConfigSave(name) end
+            end))
+        end
+    end
+    self.ProfileStatus=label(profilesPage,
+        "Custom profiles persist only when Save preferences locally is ON.",
+        4,385,448,72,12)
+    self.ProfileStatus.TextWrapped=true
+    self.ProfileStatus.TextYAlignment=Enum.TextYAlignment.Top
+    self:ToggleRow(profilesPage,"Compact dashboard layout",
+        "GuiCompactEnabled",465)
+    label(profilesPage,"Custom hotkeys (F8 emergency stop stays fixed)",
+        4,523,439,29,13)
+    self.HotkeyButtons={}
+    for i,action in ipairs({"Hunt","Next","Radar","Menu","Stop"}) do
+        local y=563+(i-1)*54
+        local btn=button(profilesPage,action.." hotkey",0,y,330,39,COLOR.Row)
+        self.HotkeyButtons[action]=btn
+        self.Janitor:Add(btn.MouseButton1Click:Connect(function()
+            if self.OnHotkeyCycle then self.OnHotkeyCycle(action) end
+        end))
+    end
+    local profileHelp=label(profilesPage,
+        "Hotkeys: toggle Hunt, select next Dhab, toggle Radar. Profile saves exclude passwords, remotes and account information.",
+        4,862,445,100,12)
+    profileHelp.TextWrapped=true
+    profileHelp.TextYAlignment=Enum.TextYAlignment.Top
+    profileHelp.TextColor3=COLOR.Muted
 
     -- Settings tab: functional FOV slider and additional player preferences.
     local settingsPage = self.Pages.Settings
@@ -1056,6 +1289,12 @@ end
 
 function UIController:ShowPage(name)
     self.ActivePage = name
+    if name == "Dhab Explorer" and self.OnExplorerRefresh then
+        self.OnExplorerRefresh()
+    end
+    if name == "Car Inspector" and self.OnInspectCar then
+        self.OnInspectCar()
+    end
     if name == "Targets" and self.OnTargetsRefresh then
         self.OnTargetsRefresh(self.ShowScenery)
     end
@@ -1092,11 +1331,32 @@ function UIController:Refresh()
         self.ShootRateLabel.Text = "Firing rate: " ..
             tostring(self.Settings.AutoShootRate) .. " shots/sec"
     end
+    if self.AlertTierButton then
+        self.AlertTierButton.Text="Alert Tier: T"..
+            tostring(self.Settings.DhabAlertTier).."+"
+        self.AlertLengthButton.Text="Alert Length: "..
+            tostring(self.Settings.DhabAlertLength).." studs"
+    end
+    if self.SkipDuration then
+        self.SkipDuration.Text="Dhab cooldown: "..
+            tostring(self.Settings.HuntManualSkipSeconds).." seconds"
+    end
+    if self.HotkeyButtons then
+        for action,btn in pairs(self.HotkeyButtons) do
+            local key=({Hunt="HuntHotkey",Next="NextTargetHotkey",
+                Radar="RadarHotkey",Menu="MenuHotkey",
+                Stop="StopHotkey"})[action]
+            btn.Text=action.." hotkey: "..
+                tostring(self.Settings[key])
+        end
+    end
     if self.CarInputButton then
         self.CarInputButton.Text =
             self.Settings.HuntCarInputMode == "Seat" and "Car input: VehicleSeat"
+            or (self.Settings.HuntCarInputMode == "ControlsValue"
+                and "Car input: Typed controls (opt-in)"
             or (self.Settings.HuntCarInputMode == "Auto"
-                and "Car input: Auto (calibrated)" or "Car input: Keyboard W/A/S/D")
+                and "Car input: Auto (calibrated)" or "Car input: Keyboard W/A/S/D"))
     end
     if self.AdvancedLabels then
         for key,lbl in pairs(self.AdvancedLabels) do
@@ -1147,6 +1407,43 @@ function UIController:SetLearnerStatus(report)
     if self.LearnerStatus then
         self.LearnerStatus.Text=tostring(report):sub(1,1600)
     end
+end
+
+function UIController:SetExplorerRows(rows,sort,tier)
+    if not self.ExplorerList then return end
+    for _,child in ipairs(self.ExplorerList:GetChildren()) do
+        if child:IsA("GuiObject") then child:Destroy() end
+    end
+    self.ExplorerSort.Text="Sort: "..tostring(sort)
+    self.ExplorerTier.Text="Tier: "..tostring(tier)
+    self.ExplorerInfo.Text=("%d live Dhab matched | tap a row to lock"):format(#rows)
+    for i,entry in ipairs(rows) do
+        local y=(i-1)*48
+        local title=("%s  | %s | L %.2f | S %.2fx | %.0f studs"):format(
+            entry.Name,entry.Tier,entry.Length,entry.Size,entry.Distance)
+        local btn=button(self.ExplorerList,title,0,y,454,43,COLOR.Row)
+        btn.TextSize=11
+        btn.TextXAlignment=Enum.TextXAlignment.Left
+        btn.MouseButton1Click:Connect(function()
+            if self.OnExplorerSelect then self.OnExplorerSelect(entry.Model) end
+        end)
+    end
+end
+function UIController:SetAlertStatus(value)
+    if self.AlertStatus then
+        self.AlertStatus.Text=tostring(value):sub(1,180)
+    end
+end
+function UIController:SetProfileStatus(value)
+    if self.ProfileStatus then self.ProfileStatus.Text=tostring(value) end
+end
+function UIController:SetCarInspection(value)
+    if self.CarInspectorLabel then
+        self.CarInspectorLabel.Text=tostring(value):sub(1,4200)
+    end
+end
+function UIController:SetExportStatus(value)
+    if self.DebugExportStatus then self.DebugExportStatus.Text=tostring(value) end
 end
 
 function UIController:SetDiagnosticStatus(report)
@@ -1232,6 +1529,9 @@ end
 
 function UIController:ToggleWindow()
     self.Window.Visible = not self.Window.Visible
+    if self.MiniButton then
+        self.MiniButton.Visible=not self.Window.Visible
+    end
 end
 
 function UIController:RenderTargets(choices)

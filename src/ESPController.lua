@@ -97,6 +97,57 @@ function ESPController:SetEnabled(enabled)
     end
 end
 
+function ESPController:OccupiedCar()
+    local c=self.LocalPlayer.Character
+    local humanoid=c and c:FindFirstChildOfClass("Humanoid")
+    local seat=humanoid and humanoid.SeatPart
+    local vehicle=self.Hunt and self.Hunt.Vehicle
+    if not vehicle or not seat then return nil,nil end
+    return vehicle:FindCar(seat,humanoid),seat
+end
+function ESPController:InspectCar()
+    local car,seat=self:OccupiedCar()
+    local info
+    if not car then
+        info="Sit in the driver seat of your own PlayersCars model first"
+    else
+        info=self.Gear:Inspect(car,seat).."\n\n"..
+            self.Adapter:Inspect(car,seat)
+    end
+    if self.UI then self.UI:SetCarInspection(info) end
+    if self.Debug then self.Debug:Add("CAR_INSPECT",info:sub(1,180)) end
+end
+function ESPController:RefreshExplorer()
+    if not self.Explorer or not self.UI then return end
+    self.UI:SetExplorerRows(self.Explorer:Query(18),
+        self.Explorer.Sort,self.Explorer.Tier)
+end
+function ESPController:SkipCurrentDhab()
+    if self.Hunt then
+        self.Hunt:SkipCurrent()
+        if self.Debug then self.Debug:Add("HUNT","Manual target cooldown") end
+    end
+    if self.UI then self.UI:SetDiagnosticStatus(self:Diagnostics()) end
+end
+function ESPController:ApplyProfile(name)
+    local success,status=self.Profiles:Apply(name,function(key,value)
+        self:SetSetting(key,value)
+    end)
+    self.UI:SetProfileStatus(status)
+    if self.Debug then self.Debug:Add("PROFILE",status) end
+    self.UI:Refresh()
+end
+function ESPController:ExportDebug()
+    if not self.Debug then return end
+    local copied,report=self.Debug:Copy(self:Diagnostics())
+    if self.UI then
+        self.UI:SetExportStatus(copied
+            and "Copied report to clipboard"
+            or "Clipboard unavailable; saved to IvoryDebugReport")
+    end
+    print(report)
+end
+
 function ESPController:EmergencyStop()
     -- F8 aborts only active autonomous actions and always releases WASD.
     self.Settings.AutoHuntEnabled = false
@@ -108,6 +159,7 @@ function ESPController:EmergencyStop()
         self.Hunt:SetStatus("F8 emergency stop")
     end
     if self.Learner and self.Learner.Running then self.Learner:Cancel() end
+    if self.Debug then self.Debug:Add("SAFETY","F8/focus emergency stop") end
     if self.Hunt and self.Hunt.Vehicle then self.Hunt.Vehicle:Stop() end
     if self.AutoShoot then self.AutoShoot:ReleaseMouse()
         self.AutoShoot:SetStatus("F8 emergency stop") end
@@ -169,6 +221,11 @@ function ESPController:Diagnostics()
                 or vehicle.Vehicle:GetAttribute("ModelName")
                 or vehicle.Vehicle.Name] or "not calibrated"),
         "Learner: "..tostring(self.Learner and self.Learner.Status or "not active"),
+        "Gear Inspector: "..tostring(self.Gear and self.Gear.Last or "not inspected"),
+        "Typed control adapter: "..tostring(self.Adapter and self.Adapter.Last or "none"),
+        "Target cooldown: "..tostring(self.Settings.HuntManualSkipSeconds).."s",
+        "Explorer: "..tostring(self.Explorer and #self.Explorer.Rows or 0).." shown",
+        "Alerts: "..tostring(self.Alerts and self.Alerts.Last or "off"),
         "Observed locations: "..tostring(self.Heatmap and self.Heatmap.Total or 0),
         "Safety focus: "..tostring(self.Safety and self.Safety.LastEvent or "unknown"),
         "HUD N may mean Neutral. Verify gear manually before retrying.",
@@ -225,6 +282,13 @@ function ESPController:SetSetting(key, value)
     end
 
     self.Settings[key] = value
+    if self.Debug then self.Debug:Add("SETTING",key.."="..tostring(value)) end
+    if key=="GuiCompactEnabled" and self.UI then
+        self.UI.UserScale=value and 0.85 or 1
+        self.Settings.GuiScale=self.UI.UserScale
+    elseif key=="GuiScale" and self.UI then
+        self.UI.UserScale=math.clamp(value,0.65,1.25)
+    end
     if key == "CameraFOV" and self.FOV then
         self.FOV:SetFOV(value)
     end
@@ -241,7 +305,8 @@ function ESPController:SetSetting(key, value)
     if key == "AntiFogEnabled" and self.AntiFog then
         self.AntiFog:SetEnabled(value)
     end
-    if key == "HuntCarInputMode" and self.Hunt and self.Hunt.Vehicle then
+    if (key == "HuntCarInputMode" or key == "HuntAdapterEnabled")
+        and self.Hunt and self.Hunt.Vehicle then
         self.Hunt.Vehicle:Stop()
     end
     if key == "AutoHuntEnabled" and not value and self.Hunt then
@@ -334,6 +399,10 @@ function ESPController:Start()
     self.Stats = self.Classes.HuntStats.new(self.Settings)
     self.Planner = self.Classes.HuntPlanner.new(self.Settings)
     self.Catches = self.Classes.CatchTracker.new(self.Settings)
+    self.Debug=self.Classes.DebugLog.new()
+    self.Adapter=self.Classes.VehicleAdapter.new()
+    self.Gear=self.Classes.GearInspector.new()
+    self.Profiles=self.Classes.ConfigProfiles.new(self.Settings)
     self.Learner = self.Classes.VehicleControlLearner.new(
         self.Settings,self.Classes.VehicleKeyInput)
     self.FOV = self.Classes.FOVController.new(self.Settings)
@@ -370,6 +439,49 @@ function ESPController:Start()
         end
     end
     self.UI.OnObserveDriving=function() self.Learner:Observe() end
+    self.UI.OnVehicleBench=function() self.Learner:RunBench() end
+    self.UI.OnInspectCar=function() self:InspectCar() end
+    self.UI.OnExplorerRefresh=function() self:RefreshExplorer() end
+    self.UI.OnExplorerSort=function()
+        if self.Explorer then self.Explorer:NextSort() end
+        self:RefreshExplorer()
+    end
+    self.UI.OnExplorerTier=function()
+        if self.Explorer then self.Explorer:NextTier() end
+        self:RefreshExplorer()
+    end
+    self.UI.OnExplorerSearch=function(value)
+        if self.Explorer then self.Explorer.Search=value end
+        self:RefreshExplorer()
+    end
+    self.UI.OnExplorerSelect=function(model)
+        if self.Hunt and self.Hunt:SelectSpecific(model) then
+            self.Settings.HuntTargetLockEnabled=true
+            self.UI:SetProfileStatus("Locked selected Dhab: "..model.Name)
+            if self.Debug then self.Debug:Add("TARGET","Selected "..model.Name) end
+        end
+        self.UI:Refresh()
+    end
+    self.UI.OnSkipDhab=function() self:SkipCurrentDhab() end
+    self.UI.OnClearSkips=function()
+        if self.Hunt then self.Hunt:ClearSkips() end
+    end
+    self.UI.OnExportLog=function() self:ExportDebug() end
+    self.UI.OnConfigLoad=function(name) self:ApplyProfile(name) end
+    self.UI.OnConfigSave=function(name)
+        local ok,message=self.Profiles:Save(name)
+        self.UI:SetProfileStatus(message)
+        if ok and self.Store then self.Store:OnSettingChanged("ConfigSlots") end
+    end
+    self.UI.OnHotkeyCycle=function(action)
+        if self.Hotkeys then
+            local key=self.Hotkeys:Cycle(action)
+            if key and self.Store then
+                self.Store:OnSettingChanged(action.."Hotkey")
+            end
+            self.UI:Refresh()
+        end
+    end
     self.UI.OnCalibrateCar=function() self.Learner:Calibrate() end
     self.UI.OnCancelCalibration=function() self.Learner:Cancel() end
     self.UI.OnPreset=function(name) self:ApplyHuntPreset(name) end
@@ -438,6 +550,17 @@ function ESPController:Start()
         self.Settings
     )
     self.MonsterTracker:Start()
+    self.Explorer=self.Classes.DhabExplorer.new(self.MonsterTracker)
+    self.Alerts=self.Classes.DhabAlerts.new(
+        self.Settings,self.MonsterTracker,function(message)
+            if self.UI then self.UI:SetAlertStatus(message) end
+            if self.Debug then self.Debug:Add("DHAB_ALERT",message) end
+            pcall(function()
+                game:GetService("StarterGui"):SetCore("SendNotification",{
+                    Title="7jl Dhab Alert",Text=message,Duration=5,
+                })
+            end)
+        end)
 
     self.Inspector = self.Classes.MonsterInspector.new(
         self.Settings.InspectorKey,
@@ -494,9 +617,25 @@ function ESPController:Start()
     )
     self.Hunt.Vehicle.Navigator=self.Classes.OffroadNavigator.new(
         self.Settings)
+    self.Hunt.Vehicle.Adapter=self.Adapter
     self.Hunt.Planner = self.Planner
     self.Hunt.Stats = self.Stats
     self.Hunt:Start()
+    self.Hotkeys=self.Classes.HotkeyController.new(
+        self.Settings,{
+            Hunt=function()
+                self:SetSetting("AutoHuntEnabled",
+                    not self.Settings.AutoHuntEnabled)
+                self.UI:Refresh()
+            end,
+            Next=function()self.Hunt:SelectNeighbor(1) end,
+            Radar=function()
+                self:SetSetting("RadarEnabled",not self.Settings.RadarEnabled)
+                self.UI:Refresh()
+            end,
+            Menu=function()self.UI:ToggleWindow() end,
+            Stop=function()self:EmergencyStop() end,
+        })
 
     self.Radar = self.Classes.DhabRadar.new(
         self.Settings, self.MonsterTracker,
@@ -520,6 +659,7 @@ function ESPController:Start()
         if not camera then return end
 
         self.FOV:Update(camera)
+        if self.Alerts then self.Alerts:Update(dt) end
         self.StatsRefresh = self.StatsRefresh + dt
         if self.StatsRefresh >= 1 then
             self.StatsRefresh = 0
@@ -538,6 +678,9 @@ function ESPController:Start()
             self.Settings.LongestDhabModel=longest
             if self.UI and self.Stats then
                 if self.Catches then self.Catches:Update() end
+                if self.Debug and self.Hunt then
+                    self.Debug:Add("HUNT_STATUS",self.Hunt.Status)
+                end
                 self.UI:SetStatistics(self.Stats:GetSummary() ..
                     "\n" .. (self.Catches and self.Catches:Describe() or ""))
                 if self.Store then self.UI:SetStorageStatus(self.Store.LastStatus) end
@@ -600,6 +743,8 @@ function ESPController:Destroy()
     table.clear(self.Connections)
 
     if self.Learner then self.Learner:Destroy() end
+    if self.Adapter then self.Adapter:Stop() end
+    if self.Hotkeys then self.Hotkeys:Destroy() end
     if self.Hunt then self.Hunt:Destroy() end
     if self.HUD then self.HUD:Destroy() end
     if self.Heatmap then self.Heatmap:Destroy() end

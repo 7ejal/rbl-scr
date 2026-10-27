@@ -235,3 +235,19 @@
 - [ ] New Vehicle Lab and Hunt Tools pages are scrollable; Frame.ScrollBarThickness prior crash remains fixed.
 - [ ] New modules exist and are loaded by main.lua; missing game-only APIs report unsupported and never claim success.
 - [ ] Car Auto Hunt, Auto Shoot, Dhab Stats, HandCatch and Car ESP, Quality, Anti Fog, Radar, Saved Settings stay available.
+
+
+## 7jl ten-feature extension: manual tests still required
+
+- [ ] Car Inspector displays actual seat/car gear attributes/values and any typed Controls values without inventing unknown fields.
+- [ ] Explicit ControlsValue opt-in only drives own occupied driver car where Controls/Input folder has NumberValue Throttle and Steer; on stop, manual override, unsafe terrain or no-response, values reset to zero.
+- [ ] Manual Test Bench measures actual speed, positive/negative acceleration and steering changes while physical W/A/S/D is used; creates no synthetic input.
+- [ ] Dhab Explorer sort Distance/Length/Size/Tier, filter tiers/name, select a still-live Dhab, and do not select invalid targets.
+- [ ] Alerts detect thresholds from Tier/Length, avoid repeated alerts for same model and cap notifications per scan.
+- [ ] Target cooldown skips selected Dhab until expiry and Clear Skips makes eligible again.
+- [ ] Hotkeys rebind to nonduplicate keys, preserve F8 emergency, RightCtrl menu and I ESP toggle; don't execute while typing.
+- [ ] Four presets switch permitted options and stop Hunt/Shoot; Custom A/B save and load only typed whitelisted settings.
+- [ ] Debug copy exports bounded status, supports unsupported clipboard through getgenv().IvoryDebugReport, no secrets.
+- [ ] GUI V2 page search, category collapsing, scaling, floating reopen, 20 pages, and all scrollable pages work without Frame.ScrollBarThickness errors.
+- [ ] Reload or IvoryESP_Stop cleans adapter, alerts, log, hotkey listener and GUI, including no held W/A/S/D.
+- [ ] Existing on-foot/car hunting, anti-fog, quality, car/handcatch overlay, radar, HUD, stats, settings remain functional.

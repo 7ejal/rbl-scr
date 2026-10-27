@@ -60,6 +60,7 @@ function AutoHuntController.new(settings, tracker, aimController, onStatus)
         StuckAttempts = 0,
         LastPathTarget = nil,
         LockedModel = nil,
+        Exclusions = setmetatable({}, {__mode="k"}),
     }, AutoHuntController)
 end
 
@@ -96,13 +97,51 @@ function AutoHuntController:AllowedTier(model)
     return true
 end
 
+function AutoHuntController:SkipCurrent()
+    local model=self.Target or self.LockedModel
+    if not model then
+        self:SetStatus("No Dhab selected to skip")
+        return
+    end
+    local seconds=math.clamp(self.Settings.HuntManualSkipSeconds or 90,15,600)
+    self.Exclusions[model]=os.clock()+seconds
+    if self.LockedModel==model then self.LockedModel=nil end
+    if self.Planner then self.Planner:Completed(model) end
+    self:Reset()
+    self:SetStatus("Skipped target for "..seconds.." seconds")
+end
+
+function AutoHuntController:ClearSkips()
+    self.Exclusions=setmetatable({}, {__mode="k"})
+    self.Unreachable=setmetatable({}, {__mode="k"})
+    self:SetStatus("Target cooldowns cleared")
+end
+
+function AutoHuntController:SelectSpecific(model)
+    local char=Players.LocalPlayer.Character
+    local root=char and char:FindFirstChild("HumanoidRootPart")
+    local origin=root and root.Position
+    if not origin or not self:ValidTarget(model,origin) then
+        self:SetStatus("Dhab is no longer eligible or in range")
+        return false
+    end
+    self:Reset()
+    self.LockedModel=model
+    self.Settings.HuntTargetLockEnabled=true
+    self.Target=model
+    self.Aim:SetHuntTarget(model)
+    self:SetStatus("Selected live Dhab: "..model.Name)
+    return true
+end
+
 function AutoHuntController:ValidTarget(model, origin)
     if not model or not model:IsDescendantOf(workspace)
         or not self.Tracker:IsDhab(model)
         or self.Tracker.Known[model] ~= "monster"
         or not alive(model)
         or not self:AllowedTier(model)
-        or (self.Unreachable[model] or 0) > os.clock() then
+        or (self.Unreachable[model] or 0) > os.clock()
+        or (self.Exclusions[model] or 0) > os.clock() then
         return nil
     end
     local location = positionOf(model)
