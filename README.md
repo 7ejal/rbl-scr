@@ -2,10 +2,12 @@
 
 ## Official hosted loader (Cloudflare)
 
+**v2 analytics:** The loader now uses boot.lua to group each launch under an ephemeral random session ID. Automatic anonymous startup categories can be disabled using getgenv().IvoryESP_Telemetry=false before loading. Car results require getgenv().IvoryESP_CarTelemetry=true. Private Cloudflare Access dashboard: https://scripts.7jl.dev/admin . Details: cloudflare/README.md.
+
 **Use the 7jl website, not the GitHub raw URL:**
 
 ```lua
-loadstring(game:HttpGet("https://scripts.7jl.dev/main.lua?v=" .. tostring(os.time())))()
+loadstring(game:HttpGet("https://scripts.7jl.dev/boot.lua?v=" .. tostring(os.time())))()
 ```
 
 Scripts are served from **Cloudflare KV** at [scripts.7jl.dev](https://scripts.7jl.dev/), with per-request records in a private **Cloudflare D1** database. Detailed setup, telemetry queries, and deployment updates: [cloudflare/README.md](cloudflare/README.md). GitHub remains the source repository; pushing code here alone does **not** automatically update the hosted release.

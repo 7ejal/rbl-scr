@@ -295,6 +295,14 @@ function Car:Step()
             local elapsed=now-self.NoResponseSince
             if elapsed>=9 then
                 self.NoResponse=true
+                pcall(function()
+                    local e=type(getgenv)=="function" and getgenv() or _G
+                    if type(e)=="table" and e.IvoryESP_CarTelemetry==true
+                        and type(e.IvoryESP_Report)=="function" then
+                        e.IvoryESP_Report("car_compat","no_response",nil,
+                            self.ResolvedInputMode or "unknown","no_motion","zero")
+                    end
+                end)
                 self.Input:ReleaseAll()
                 if self.Adapter then self.Adapter:Stop() end
                 self.LastStatus="No drive response (0 km/h); check gear N / Drive"

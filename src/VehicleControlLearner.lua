@@ -192,6 +192,15 @@ function Learner:Calibrate()
         else
             self:Tell("Neither input method moved this car; check gear/chassis")
         end
+        -- Only share categorical car compatibility outcomes when opt-in.
+        pcall(function()
+            local e=type(getgenv)=="function" and getgenv() or _G
+            if type(e)=="table" and e.IvoryESP_CarTelemetry==true
+                and type(e.IvoryESP_Report)=="function" then
+                e.IvoryESP_Report("car_compat","calibration",nil,
+                    winner or "none",winner and "moved" or "no_motion","unknown")
+            end
+        end)
     end)
 end
 -- Manual vehicle test bench: measures real inputs and motion over 10 seconds.

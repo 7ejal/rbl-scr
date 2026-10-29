@@ -251,3 +251,25 @@
 - [ ] GUI V2 page search, category collapsing, scaling, floating reopen, 20 pages, and all scrollable pages work without Frame.ScrollBarThickness errors.
 - [ ] Reload or IvoryESP_Stop cleans adapter, alerts, log, hotkey listener and GUI, including no held W/A/S/D.
 - [ ] Existing on-foot/car hunting, anti-fog, quality, car/handcatch overlay, radar, HUD, stats, settings remain functional.
+
+## Cloudflare v2 loader, anonymous telemetry & private dashboard
+
+- [ ] `https://scripts.7jl.dev/health` returns release v2 and no Cloudflare errors.
+- [ ] `https://scripts.7jl.dev/boot.lua` returns valid Luau, generates a different UUID on each load, and only requests Cloudflare-hosted files.
+- [ ] Session query token links the one main.lua, config.lua, and 45 modules; no persisted player/hardware ID.
+- [ ] When telemetry is enabled by default, boot_start, startup_success and categorized startup_error event requests are sent without raw errors.
+- [ ] Set getgenv().IvoryESP_Telemetry=false and confirm there are no client event records for this launch, while file requests still appear.
+- [ ] Complete vehicle calibration and fail a stationary car attempt with car telemetry OFF: no car_compat event is created.
+- [ ] Set getgenv().IvoryESP_CarTelemetry=true before a new load; only categorical car_compat report is created.
+- [ ] All 48 v2 KV keys are available; all 47 v1 keys remain intact.
+- [ ] v2 module fetch uses release=v2; old v1 release can be explicitly requested with release=v1.
+- [ ] Request logs show method, status, time, path, release, session ID and bytes with 30-day retention.
+- [ ] Query the dashboard through https://scripts.7jl.dev/admin and authenticate with the Cloudflare account owner allowed by Access.
+- [ ] Anonymous requests to /admin/api must be blocked by Cloudflare Access; no D1 data publicly exposed.
+- [ ] Dashboard shows 7-day sessions, success/failure counts, version distribution, failed modules, opted-in car results.
+- [ ] Test 404 and 405 HTTP responses and verify each Worker-handled request still logs in D1.
+- [ ] Verify startup errors categorize module_fetch/module_compile/module_runtime/controller_start and do not include stack traces.
+- [ ] Simulate D1 write failure: Worker responds with x-7jl-log: failed and does not claim successful request logging.
+- [ ] The 03:00 UTC cron deletes >30-day rows in both tables without affecting live files.
+- [ ] Verify that the existing 7jl.dev website and root Worker 7jl-site remain untouched.
+- [ ] GitHub source changes require explicit Cloudflare KV publication; they are not immediately live.

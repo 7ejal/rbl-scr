@@ -107,6 +107,36 @@ end
 
 notify("IVORY ESP - Loading", "Preparing Lua modules...", "LOADING")
 
+-- All module fetches share one anonymous launch ID from boot.lua.
+-- Direct main.lua loading also works, but the initial request is ungrouped.
+local sessionId=env.IvoryESP_Session
+if type(sessionId)~="string" or
+    not sessionId:match("^[a-fA-F0-9]+%-[a-fA-F0-9]+%-[a-fA-F0-9]+%-[a-fA-F0-9]+%-[a-fA-F0-9]+$") then
+    sessionId=game:GetService("HttpService"):GenerateGUID(false)
+end
+local release="v2"
+env.IvoryESP_Session=sessionId
+env.IvoryESP_Release=release
+local function sendEvent(event,code,module,method,result,speedBand)
+    if env.IvoryESP_Telemetry==false then return end
+    task.spawn(function()
+        pcall(function()
+            local url="https://scripts.7jl.dev/event?session="..sessionId
+                .."&release="..release.."&event="..event
+            if code then url=url.."&code="..code end
+            if module then
+                url=url.."&module="..game:GetService("HttpService"):UrlEncode(module)
+            end
+            if method then url=url.."&method="..tostring(method) end
+            if result then url=url.."&result="..tostring(result) end
+            if speedBand then url=url.."&speed="..tostring(speedBand) end
+            game:HttpGet(url)
+        end)
+    end)
+end
+env.IvoryESP_Report=sendEvent
+local startupStage="initialization"
+local failedModule=nil
 local activeController
 local ok, response = pcall(function()
     assert(type(loadstring) == "function", "Xeno must support loadstring")
@@ -116,20 +146,26 @@ local ok, response = pcall(function()
     local base = "https://scripts.7jl.dev/"
 
     local function load(path)
+        startupStage="module_fetch"
+        failedModule=path
         local url = base .. path
         local lastError
         for attempt = 1, 3 do
             local success, body = pcall(function()
-                return game:HttpGet(url .. "?ivory_cache=" .. tostring(os.time()))
+                return game:HttpGet(url .. "?session=" .. sessionId
+                    .. "&release=" .. release
+                    .. "&ivory_cache=" .. tostring(os.time()))
             end)
             if success and type(body) == "string" and #body > 0 then
                 local chunk, compileError = loadstring(body)
                 if not chunk then
+                    startupStage="module_compile"
                     error("Syntax error in " .. path .. ": " ..
                         tostring(compileError))
                 end
                 local worked, result = pcall(chunk)
                 if not worked then
+                    startupStage="module_runtime"
                     error("Module error in " .. path .. ": " ..
                         tostring(result))
                 end
@@ -190,6 +226,8 @@ local ok, response = pcall(function()
     activeController = controller
 
     notify("IVORY ESP - Loading", "Building dashboard...", "LOADING")
+    startupStage="controller_start"
+    failedModule=nil
     controller:Start()
 
     local function stop()
@@ -206,6 +244,7 @@ if not ok then
         pcall(function() activeController:Destroy() end)
     end
     local fullError = tostring(response)
+    sendEvent("startup_error",startupStage,failedModule)
     warn("[IVORY ESP LOAD FAILED] " .. fullError)
     notify("IVORY ESP - Load failed",
         string.sub(fullError, 1, 160) .. " | Open F9 for details.",
@@ -213,6 +252,7 @@ if not ok then
     return nil
 end
 
+sendEvent("startup_success")
 notify("IVORY ESP - Loaded",
     "Successfully loaded. Press Right Ctrl for menu; I for ESP.",
     "SUCCESS", 8)
