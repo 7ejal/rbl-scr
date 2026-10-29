@@ -112,10 +112,8 @@ local ok, response = pcall(function()
     assert(type(loadstring) == "function", "Xeno must support loadstring")
     -- HttpGet is supplied by the executor; test it in load() below.
 
-    local ref = env.IvoryESP_Ref or "main"
-    assert(type(ref) == "string" and ref:match("^[%w%._/%-]+$"),
-        "Invalid IvoryESP_Ref")
-    local base = "https://raw.githubusercontent.com/7ejal/rbl-scr/" .. ref .. "/"
+    -- Files are released to Cloudflare KV; no GitHub fetches at runtime.
+    local base = "https://scripts.7jl.dev/"
 
     local function load(path)
         local url = base .. path

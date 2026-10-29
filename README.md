@@ -1,5 +1,15 @@
 # IVORY ESP (Roblox Luau)
 
+## Official hosted loader (Cloudflare)
+
+**Use the 7jl website, not the GitHub raw URL:**
+
+```lua
+loadstring(game:HttpGet("https://scripts.7jl.dev/main.lua?v=" .. tostring(os.time())))()
+```
+
+Scripts are served from **Cloudflare KV** at [scripts.7jl.dev](https://scripts.7jl.dev/), with per-request records in a private **Cloudflare D1** database. Detailed setup, telemetry queries, and deployment updates: [cloudflare/README.md](cloudflare/README.md). GitHub remains the source repository; pushing code here alone does **not** automatically update the hosted release.
+
 Class-based, modular client-side ESP with a dark dashboard branded as 7jl, with a compact dark dashboard. **All UI labels are in English, without emojis.**
 
 **Status:** Implementation is committed on PR #1, but Roblox/Xeno runtime testing remains necessary. The repository is **public**: don't commit secrets.
@@ -35,9 +45,8 @@ If no notification appears at all, the initial `game:HttpGet(.../main.lua)` or `
 
 ```lua
 local ok, err = pcall(function()
-    getgenv().IvoryESP_Ref = "feature/modular-ivory-esp"
-    local source = game:HttpGet(
-        "https://raw.githubusercontent.com/7ejal/rbl-scr/feature/modular-ivory-esp/main.lua"
+        local source = game:HttpGet(
+        "https://scripts.7jl.dev/main.lua"
     )
     local run = assert(loadstring(source))
     run()
@@ -58,8 +67,7 @@ end
 
 In a trusted executor supporting game:HttpGet and loadstring:
 
-    getgenv().IvoryESP_Ref = "feature/modular-ivory-esp"
-    loadstring(game:HttpGet("https://raw.githubusercontent.com/7ejal/rbl-scr/feature/modular-ivory-esp/main.lua"))()
+        loadstring(game:HttpGet("https://scripts.7jl.dev/main.lua"))()
 
 After review and merge, use:
 
