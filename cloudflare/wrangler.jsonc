@@ -1,0 +1,30 @@
+{
+  "name": "7jl-esp-loader",
+  "main": "worker.js",
+  "compatibility_date": "2026-10-29",
+  "workers_dev": false,
+  "routes": [
+    {
+      "pattern": "scripts.7jl.dev",
+      "custom_domain": true
+    }
+  ],
+  "kv_namespaces": [
+    {
+      "binding": "RELEASE_FILES",
+      "id": "f72d80a9fb9e425ca0a1a1a88e1d134f"
+    }
+  ],
+  "d1_databases": [
+    {
+      "binding": "REQUEST_LOGS",
+      "database_name": "7jl-esp-request-log",
+      "database_id": "e92ea130-3585-4a54-b4fd-1f5b053c877a"
+    }
+  ],
+  "triggers": {
+    "crons": [
+      "0 3 * * *"
+    ]
+  }
+}
